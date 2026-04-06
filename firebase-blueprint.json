@@ -1,0 +1,76 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile and settings",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string", "format": "email" },
+        "firstName": { "type": "string" },
+        "lastName": { "type": "string" },
+        "profilePicture": { "type": "string" },
+        "bio": { "type": "string" },
+        "favoriteGenres": { "type": "array", "items": { "type": "string" } },
+        "readingGoal": { "type": "integer" },
+        "theme": { "type": "string", "enum": ["light", "dark"] },
+        "joinDate": { "type": "string", "format": "date-time" }
+      },
+      "required": ["email"]
+    },
+    "Book": {
+      "title": "Book",
+      "description": "A book in the user's library",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "title": { "type": "string" },
+        "author": { "type": "string" },
+        "seriesName": { "type": "string" },
+        "seriesPosition": { "type": "number" },
+        "genre": { "type": "array", "items": { "type": "string" } },
+        "status": { "type": "string", "enum": ["To Read", "Currently Reading", "Completed", "DNF", "On Hold"] },
+        "rating": { "type": "number" },
+        "coverImageUrl": { "type": "string" },
+        "isbn": { "type": "string" },
+        "publicationYear": { "type": "integer" },
+        "pageCount": { "type": "integer" },
+        "dateStarted": { "type": "string", "format": "date-time" },
+        "dateFinished": { "type": "string", "format": "date-time" },
+        "review": { "type": "string" },
+        "personalNotes": { "type": "string" },
+        "isFavorite": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "title", "author", "genre", "status"]
+    },
+    "Series": {
+      "title": "Series",
+      "description": "Metadata for a book series",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "totalBooks": { "type": "integer" },
+        "coverImage": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "name"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profile data"
+    },
+    "/books/{bookId}": {
+      "schema": "Book",
+      "description": "Individual book entries"
+    },
+    "/series/{seriesId}": {
+      "schema": "Series",
+      "description": "Series metadata"
+    }
+  }
+}

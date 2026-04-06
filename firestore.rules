@@ -1,0 +1,170 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: users
+    // Document ID: {userId}
+    // Fields:
+    //   - email: string (required, email format)
+    //   - firstName: string (optional)
+    //   - lastName: string (optional)
+    //   - profilePicture: string (optional, URL)
+    //   - bio: string (optional, max 500)
+    //   - favoriteGenres: list (optional, strings)
+    //   - readingGoal: number (optional, positive)
+    //   - theme: string (optional, 'light' or 'dark')
+    //   - joinDate: timestamp (required)
+    //
+    // Collection: books
+    // Document ID: {bookId}
+    // Fields:
+    //   - userId: string (required, matches owner)
+    //   - title: string (required, max 200)
+    //   - author: string (required, max 100)
+    //   - seriesName: string (optional, max 100)
+    //   - seriesPosition: number (optional)
+    //   - genre: list (required, strings)
+    //   - status: string (required, enum)
+    //   - rating: number (optional, 1-5)
+    //   - coverImageUrl: string (optional, URL)
+    //   - isbn: string (optional)
+    //   - publicationYear: number (optional)
+    //   - pageCount: number (optional)
+    //   - dateStarted: timestamp (optional)
+    //   - dateFinished: timestamp (optional)
+    //   - review: string (optional, max 2000)
+    //   - personalNotes: string (optional, max 500)
+    //   - isFavorite: bool (optional)
+    //   - createdAt: timestamp (required)
+    //   - updatedAt: timestamp (required)
+    //
+    // Collection: series
+    // Document ID: {seriesId}
+    // Fields:
+    //   - userId: string (required, matches owner)
+    //   - name: string (required, max 100)
+    //   - description: string (optional, max 500)
+    //   - totalBooks: number (optional)
+    //   - coverImage: string (optional, URL)
+    //   - createdAt: timestamp (required)
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() &&
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+          (request.auth.token.email == "hetuayer@gmail.com" && request.auth.token.email_verified == true));
+    }
+
+    function hasRequiredFields(fields) {
+      return request.resource.data.keys().hasAll(fields);
+    }
+
+    function hasOnlyAllowedFields(fields) {
+      return request.resource.data.keys().hasOnly(fields);
+    }
+
+    function isValidEmail(email) {
+      return email is string && email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
+    }
+
+    function isValidUrl(url) {
+      return url is string && (url == "" || url.matches("^https://.*") || url.matches("^http://.*"));
+    }
+
+    // ===============================================================
+    // Domain Validators
+    // ===============================================================
+
+    function isValidUser(data) {
+      return hasRequiredFields(['email', 'joinDate']) &&
+             isValidEmail(data.email) &&
+             (!('firstName' in data) || data.firstName is string) &&
+             (!('lastName' in data) || data.lastName is string) &&
+             (!('profilePicture' in data) || isValidUrl(data.profilePicture)) &&
+             (!('bio' in data) || (data.bio is string && data.bio.size() <= 500)) &&
+             (!('readingGoal' in data) || (data.readingGoal is number && data.readingGoal >= 0)) &&
+             (!('theme' in data) || data.theme in ['light', 'dark']) &&
+             (!('role' in data) || data.role in ['admin', 'user']);
+    }
+
+    function isValidBook(data) {
+      return hasRequiredFields(['userId', 'title', 'author', 'genre', 'status', 'createdAt', 'updatedAt']) &&
+             data.userId == request.auth.uid &&
+             data.title is string && data.title.size() <= 200 &&
+             data.author is string && data.author.size() <= 100 &&
+             data.genre is list &&
+             data.status in ['To Read', 'Currently Reading', 'Completed', 'DNF', 'On Hold'] &&
+             (!('rating' in data) || (data.rating is number && data.rating >= 0 && data.rating <= 5)) &&
+             (!('coverImageUrl' in data) || isValidUrl(data.coverImageUrl)) &&
+             (!('review' in data) || (data.review is string && data.review.size() <= 2000)) &&
+             (!('personalNotes' in data) || (data.personalNotes is string && data.personalNotes.size() <= 500)) &&
+             (!('isFavorite' in data) || data.isFavorite is bool) &&
+             (!('seriesName' in data) || data.seriesName is string) &&
+             (!('seriesPosition' in data) || data.seriesPosition == null || data.seriesPosition is number) &&
+             (!('readingOrder' in data) || data.readingOrder == null || data.readingOrder is number) &&
+             (!('type' in data) || data.type in ['Series', 'Standalone']) &&
+             (!('isbn' in data) || data.isbn is string) &&
+             (!('publicationYear' in data) || data.publicationYear == null || data.publicationYear is number) &&
+             (!('pageCount' in data) || data.pageCount == null || data.pageCount is number) &&
+             (!('dateStarted' in data) || data.dateStarted == null || data.dateStarted is timestamp) &&
+             (!('dateFinished' in data) || data.dateFinished == null || data.dateFinished is timestamp);
+    }
+
+    function isValidSeries(data) {
+      return hasRequiredFields(['userId', 'name', 'createdAt']) &&
+             data.userId == request.auth.uid &&
+             data.name is string && data.name.size() <= 100 &&
+             (!('description' in data) || (data.description is string && data.description.size() <= 500)) &&
+             (!('totalBooks' in data) || (data.totalBooks is number && data.totalBooks >= 0));
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /users/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow create: if isOwner(userId) && isValidUser(request.resource.data) && 
+                      (!('role' in request.resource.data) || request.resource.data.role == 'user' || isAdmin());
+      allow update: if isOwner(userId) && isValidUser(request.resource.data) && 
+                      (request.resource.data.role == resource.data.role || isAdmin());
+      allow delete: if isAdmin();
+    }
+
+    match /books/{bookId} {
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow create: if isAuthenticated() && isValidBook(request.resource.data);
+      allow update: if isAuthenticated() && resource.data.userId == request.auth.uid && isValidBook(request.resource.data);
+      allow delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+    }
+
+    match /series/{seriesId} {
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow create: if isAuthenticated() && isValidSeries(request.resource.data);
+      allow update: if isAuthenticated() && resource.data.userId == request.auth.uid && isValidSeries(request.resource.data);
+      allow delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+    }
+
+    // Default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
