@@ -50,6 +50,25 @@ const BookshelfPage: React.FC<BookshelfPageProps> = ({ books }) => {
     shelves.push([]);
   }
 
+  const getBookShape = (title: string) => {
+    const len = title.length;
+    let width = 'w-8';
+    let height = 'h-[140px]';
+    
+    if (len > 30) {
+      width = 'w-14';
+      height = 'h-[190px]';
+    } else if (len > 20) {
+      width = 'w-12';
+      height = 'h-[170px]';
+    } else if (len > 10) {
+      width = 'w-10';
+      height = 'h-[150px]';
+    }
+    
+    return { width, height };
+  };
+
   return (
     <div className="space-y-12 pb-20">
       <header className="flex flex-col md:flex-row md:items-end justify-between gap-6">
@@ -58,7 +77,7 @@ const BookshelfPage: React.FC<BookshelfPageProps> = ({ books }) => {
             <BookOpen size={20} />
             <span className="text-[10px] font-black uppercase tracking-[0.3em]">Visual Collection</span>
           </div>
-          <h1 className="text-5xl md:text-7xl font-serif font-black text-brand-950 tracking-tight">
+          <h1 className="text-5xl md:text-7xl font-serif font-black text-brand-950 dark:text-brand-50 tracking-tight">
             My Bookshelf
           </h1>
         </div>
@@ -86,8 +105,7 @@ const BookshelfPage: React.FC<BookshelfPageProps> = ({ books }) => {
               {/* Render actual books */}
               {shelfBooks.map((book, idx) => {
                 const color = brightColors[(shelfIdx * booksPerShelf + idx) % brightColors.length];
-                const height = heights[(shelfIdx * booksPerShelf + idx) % heights.length];
-                const width = widths[(shelfIdx * booksPerShelf + idx) % widths.length];
+                const { width, height } = getBookShape(book.title);
                 const tilt = tilts[(shelfIdx * booksPerShelf + idx) % tilts.length];
 
                 return (
@@ -112,8 +130,8 @@ const BookshelfPage: React.FC<BookshelfPageProps> = ({ books }) => {
                     <div className="absolute bottom-6 inset-x-0 h-[1px] bg-white/30" />
 
                     {/* Title */}
-                    <div className="absolute inset-0 flex items-center justify-center p-1 overflow-hidden">
-                      <p className="text-[8px] sm:text-[9px] font-black text-white uppercase tracking-wider vertical-text text-center leading-tight drop-shadow-md break-words max-h-full">
+                    <div className="absolute inset-0 flex items-center justify-center p-2 overflow-hidden">
+                      <p className="text-[9px] sm:text-[10px] font-bold text-white uppercase tracking-widest vertical-text text-center leading-none drop-shadow-sm break-words max-h-[90%] px-1">
                         {book.title}
                       </p>
                     </div>
@@ -154,7 +172,6 @@ const BookshelfPage: React.FC<BookshelfPageProps> = ({ books }) => {
         .vertical-text {
           writing-mode: vertical-rl;
           text-orientation: mixed;
-          transform: rotate(180deg);
         }
       `}</style>
     </div>

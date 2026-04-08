@@ -49,9 +49,9 @@ export const Auth: React.FC = () => {
           </button>
           {error && <p className="mt-6 text-rose-500 text-sm font-bold">{error.message}</p>}
         </motion.div>
-        <footer className="mt-12 text-center">
-          <p className="text-brand-400 font-medium tracking-tight">
-            Created by <span className="text-brand-900 font-bold">@Hetasvi Ahir</span>
+        <footer className="mt-12 pb-6 text-center">
+          <p className="text-brand-600 font-bold tracking-tight">
+            Created by <span className="text-brand-950 underline decoration-brand-200 underline-offset-4">@Hetasvi Ahir</span>
           </p>
         </footer>
       </div>

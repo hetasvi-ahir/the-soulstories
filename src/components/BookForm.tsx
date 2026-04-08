@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth, db, collection, addDoc, updateDoc, doc, Timestamp, OperationType, handleFirestoreError, getDocs, query, where } from '../firebase';
 import { Book, BookStatus, GENRES, STATUS_OPTIONS } from '../types';
-import { X, Save, Trash2, Camera, Link as LinkIcon, Star, Calendar, BookOpen, Hash, FileText, User, Layers, Tag } from 'lucide-react';
+import { X, Save, Trash2, Camera, Link as LinkIcon, Star, Calendar, BookOpen, Hash, FileText, User, Layers, Tag, ChevronDown } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { toast } from 'sonner';
 import { clsx, type ClassValue } from 'clsx';
@@ -25,6 +25,8 @@ export const BookForm: React.FC<BookFormProps> = ({ book, onClose, onSuccess, bo
   const [loading, setLoading] = useState(false);
   const [existingSeries, setExistingSeries] = useState<string[]>([]);
   const [isSeries, setIsSeries] = useState(!!book?.seriesName || !!initialSeries);
+  const [customGenre, setCustomGenre] = useState('');
+  const [showCustomGenre, setShowCustomGenre] = useState(false);
   const [formData, setFormData] = useState<Partial<Book>>({
     title: '',
     author: '',
@@ -44,6 +46,11 @@ export const BookForm: React.FC<BookFormProps> = ({ book, onClose, onSuccess, bo
     isFavorite: false,
     ...book
   });
+
+  // Sync type with isSeries
+  useEffect(() => {
+    setFormData(prev => ({ ...prev, type: isSeries ? 'Series' : 'Standalone' }));
+  }, [isSeries]);
 
   useEffect(() => {
     const fetchSeries = async () => {
@@ -108,22 +115,69 @@ export const BookForm: React.FC<BookFormProps> = ({ book, onClose, onSuccess, bo
         type: formData.type || 'Standalone',
         updatedAt: now,
         userId: user.uid,
-        // Handle dates - use null if cleared to remove from Firestore
-        dateStarted: formData.dateStarted || null,
-        dateFinished: formData.dateFinished || null,
       };
+
+      // Dynamic date mapping based on status
+      if (formData.status === 'To Read') {
+        data.tentativeStartDate = formData.tentativeStartDate || null;
+        data.dateStarted = null;
+        data.dateFinished = null;
+        data.dateAbandoned = null;
+        data.datePaused = null;
+      } else if (formData.status === 'Currently Reading') {
+        data.dateStarted = formData.dateStarted || null;
+        data.tentativeStartDate = null;
+        data.dateFinished = null;
+        data.dateAbandoned = null;
+        data.datePaused = null;
+      } else if (formData.status === 'Completed') {
+        data.dateStarted = formData.dateStarted || null;
+        data.dateFinished = formData.dateFinished || formData.dateStarted || null;
+        data.tentativeStartDate = null;
+        data.dateAbandoned = null;
+        data.datePaused = null;
+      } else if (formData.status === 'DNF') {
+        data.dateStarted = formData.dateStarted || null;
+        data.dateAbandoned = formData.dateAbandoned || null;
+        data.tentativeStartDate = null;
+        data.dateFinished = null;
+        data.datePaused = null;
+      } else if (formData.status === 'On Hold') {
+        data.dateStarted = formData.dateStarted || null;
+        data.datePaused = formData.datePaused || null;
+        data.tentativeStartDate = null;
+        data.dateFinished = null;
+        data.dateAbandoned = null;
+      }
+
+      // Validation: Duplicate Book
+      if (!book?.id) {
+        const isDuplicate = books.some(b => 
+          b.title.toLowerCase() === data.title.toLowerCase() && 
+          b.author.toLowerCase() === data.author.toLowerCase()
+        );
+        if (isDuplicate) {
+          toast.error('This book already exists in your library!');
+          setLoading(false);
+          return;
+        }
+      }
 
       // Handle Series specific fields
       if (isSeries) {
         data.seriesName = formData.seriesName?.trim() || '';
         data.seriesPosition = formData.seriesPosition || null;
-        data.readingOrder = formData.readingOrder || formData.seriesPosition || null;
+        data.readingOrder = formData.seriesPosition || null; // Merge readingOrder with seriesPosition
       } else {
         data.seriesName = '';
         data.seriesPosition = null;
         data.readingOrder = null;
         data.type = 'Standalone';
       }
+
+      // Add user name for social feature
+      data.addedBy = user.displayName || 'Anonymous';
+      data.isPublic = true; // Make books public by default for the social feature
 
       if (book?.id) {
         console.log('Updating book:', book.id, data);
@@ -284,55 +338,195 @@ export const BookForm: React.FC<BookFormProps> = ({ book, onClose, onSuccess, bo
                           name="seriesPosition"
                           value={formData.seriesPosition || ''}
                           onChange={handleChange}
+                          onWheel={(e) => (e.target as HTMLInputElement).blur()}
                           placeholder="Ex: 1"
                           className="w-full pl-12 pr-4 py-3 bg-white dark:bg-brand-900 border border-brand-100 dark:border-brand-800 rounded-2xl focus:ring-4 focus:ring-brand-500/10 focus:border-brand-500 outline-none transition-all text-sm font-medium text-brand-950 dark:text-brand-50"
                         />
                       </div>
                     </div>
                   </div>
+
+                  {/* Add existing book to series */}
+                  {!book && initialSeries && (
+                    <div className="pt-4 border-t border-brand-100/50 dark:border-brand-800/50">
+                      <label className="text-[10px] font-black text-brand-700 dark:text-brand-400 uppercase tracking-widest ml-1 mb-3 block">Link an existing book to this series</label>
+                      <div className="relative">
+                        <LinkIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-brand-600 dark:text-brand-500" size={18} />
+                        <select
+                          onChange={(e) => {
+                            const selectedBook = books.find(b => b.id === e.target.value);
+                            if (selectedBook) {
+                              setFormData(prev => ({
+                                ...prev,
+                                title: selectedBook.title,
+                                author: selectedBook.author,
+                                genre: selectedBook.genre,
+                                coverImageUrl: selectedBook.coverImageUrl,
+                                pageCount: selectedBook.pageCount,
+                              }));
+                              toast.info(`Loaded data from "${selectedBook.title}"`);
+                            }
+                          }}
+                          className="w-full pl-12 pr-4 py-3 bg-white dark:bg-brand-900 border border-brand-100 dark:border-brand-800 rounded-2xl focus:ring-4 focus:ring-brand-500/10 focus:border-brand-500 outline-none transition-all text-sm font-medium text-brand-950 dark:text-brand-50"
+                        >
+                          <option value="">Select a book to link...</option>
+                          {books
+                            .filter(b => !b.seriesName && b.userId === user?.uid)
+                            .map(b => (
+                              <option key={b.id} value={b.id}>{b.title} by {b.author}</option>
+                            ))
+                          }
+                        </select>
+                      </div>
+                    </div>
+                  )}
                 </motion.div>
               )}
             </AnimatePresence>
           </div>
 
-          {/* Status & Rating */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <div className="space-y-4">
               <label className="text-[10px] font-black text-brand-700 dark:text-brand-400 uppercase tracking-[0.2em] ml-1">Reading Status*</label>
-              <select
-                name="status"
-                value={formData.status}
-                onChange={handleChange}
-                className="w-full px-6 py-4 bg-brand-50/50 dark:bg-brand-950/50 border border-brand-100 dark:border-brand-800 rounded-[1.5rem] focus:ring-4 focus:ring-brand-500/10 focus:border-brand-500 outline-none transition-all appearance-none font-medium text-brand-950 dark:text-brand-50"
-              >
-                {STATUS_OPTIONS.map(status => (
-                  <option key={status} value={status}>{status}</option>
-                ))}
-              </select>
+              <div className="relative">
+                <select
+                  name="status"
+                  value={formData.status}
+                  onChange={handleChange}
+                  className="w-full px-6 py-4 bg-brand-50/50 dark:bg-brand-950/50 border border-brand-100 dark:border-brand-800 rounded-[1.5rem] focus:ring-4 focus:ring-brand-500/10 focus:border-brand-500 outline-none transition-all appearance-none font-medium text-brand-950 dark:text-brand-50"
+                >
+                  {STATUS_OPTIONS.map(status => (
+                    <option key={status} value={status} className="bg-white dark:bg-brand-900">{status}</option>
+                  ))}
+                </select>
+                <ChevronDown className="absolute right-6 top-1/2 -translate-y-1/2 text-brand-400 pointer-events-none" size={20} />
+              </div>
             </div>
+            <div className="space-y-4">
+              <label className="text-[10px] font-black text-brand-700 dark:text-brand-400 uppercase tracking-[0.2em] ml-1">Rating (1-5)</label>
+              <div className="flex gap-3 bg-brand-50/30 dark:bg-brand-950/30 p-3 rounded-2xl border border-brand-100/50 dark:border-brand-800/50 w-fit">
+                {[1, 2, 3, 4, 5].map(star => (
+                  <button
+                    key={star}
+                    type="button"
+                    onClick={() => {
+                      // Fix rating bug: toggle or set
+                      setFormData(prev => ({ ...prev, rating: prev.rating === star ? 0 : star }));
+                    }}
+                    className={cn(
+                      "p-2 rounded-xl transition-all hover:scale-110 active:scale-95",
+                      formData.rating && formData.rating >= star ? "text-brand-500 bg-brand-500/10" : "text-brand-400 dark:text-brand-600 hover:text-brand-500"
+                    )}
+                  >
+                    <Star size={24} fill={formData.rating && formData.rating >= star ? "currentColor" : "none"} />
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Dynamic Dates */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            {formData.status === 'To Read' && (
+              <div className="space-y-4">
+                <label className="text-[10px] font-black text-brand-700 dark:text-brand-400 uppercase tracking-[0.2em] ml-1">Tentative Start Date</label>
+                <div className="relative">
+                  <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 text-brand-600 dark:text-brand-500" size={20} />
+                  <input
+                    type="date"
+                    name="tentativeStartDate"
+                    value={formData.tentativeStartDate && (formData.tentativeStartDate as any).seconds ? new Date((formData.tentativeStartDate as any).seconds * 1000).toISOString().split('T')[0] : ''}
+                    onChange={(e) => {
+                      const date = e.target.value ? Timestamp.fromDate(new Date(e.target.value)) : null;
+                      setFormData(prev => ({ ...prev, tentativeStartDate: date }));
+                    }}
+                    className="w-full pl-14 pr-6 py-4 bg-brand-50/50 dark:bg-brand-950/50 border border-brand-100 dark:border-brand-800 rounded-[1.5rem] focus:ring-4 focus:ring-brand-500/10 focus:border-brand-500 outline-none transition-all font-medium text-brand-950 dark:text-brand-50"
+                  />
+                </div>
+              </div>
+            )}
+
+            {formData.status !== 'To Read' && (
+              <div className="space-y-4">
+                <label className="text-[10px] font-black text-brand-700 dark:text-brand-400 uppercase tracking-[0.2em] ml-1">Start Date</label>
+                <div className="relative">
+                  <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 text-brand-600 dark:text-brand-500" size={20} />
+                  <input
+                    type="date"
+                    name="dateStarted"
+                    value={formData.dateStarted && (formData.dateStarted as any).seconds ? new Date((formData.dateStarted as any).seconds * 1000).toISOString().split('T')[0] : ''}
+                    onChange={(e) => {
+                      const date = e.target.value ? Timestamp.fromDate(new Date(e.target.value)) : null;
+                      setFormData(prev => ({ 
+                        ...prev, 
+                        dateStarted: date,
+                        // Default End Date to Start Date if not set
+                        dateFinished: (prev.status === 'Completed' && !prev.dateFinished) ? date : prev.dateFinished
+                      }));
+                    }}
+                    className="w-full pl-14 pr-6 py-4 bg-brand-50/50 dark:bg-brand-950/50 border border-brand-100 dark:border-brand-800 rounded-[1.5rem] focus:ring-4 focus:ring-brand-500/10 focus:border-brand-500 outline-none transition-all font-medium text-brand-950 dark:text-brand-50"
+                  />
+                </div>
+              </div>
+            )}
+
             {formData.status === 'Completed' && (
               <div className="space-y-4">
-                <label className="text-[10px] font-black text-brand-700 dark:text-brand-400 uppercase tracking-[0.2em] ml-1">Rating (1-5)</label>
-                <div className="flex gap-3 bg-brand-50/30 dark:bg-brand-950/30 p-3 rounded-2xl border border-brand-100/50 dark:border-brand-800/50 w-fit">
-                  {[1, 2, 3, 4, 5].map(star => (
-                    <button
-                      key={star}
-                      type="button"
-                      onClick={() => setFormData(prev => ({ ...prev, rating: star }))}
-                      className={cn(
-                        "p-2 rounded-xl transition-all hover:scale-110 active:scale-95",
-                        formData.rating && formData.rating >= star ? "text-brand-500 bg-brand-500/10" : "text-brand-400 dark:text-brand-600 hover:text-brand-500"
-                      )}
-                    >
-                      <Star size={24} fill={formData.rating && formData.rating >= star ? "currentColor" : "none"} />
-                    </button>
-                  ))}
+                <label className="text-[10px] font-black text-brand-700 dark:text-brand-400 uppercase tracking-[0.2em] ml-1">End Date</label>
+                <div className="relative">
+                  <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 text-brand-600 dark:text-brand-500" size={20} />
+                  <input
+                    type="date"
+                    name="dateFinished"
+                    value={formData.dateFinished && (formData.dateFinished as any).seconds ? new Date((formData.dateFinished as any).seconds * 1000).toISOString().split('T')[0] : ''}
+                    onChange={(e) => {
+                      const date = e.target.value ? Timestamp.fromDate(new Date(e.target.value)) : null;
+                      setFormData(prev => ({ ...prev, dateFinished: date }));
+                    }}
+                    className="w-full pl-14 pr-6 py-4 bg-brand-50/50 dark:bg-brand-950/50 border border-brand-100 dark:border-brand-800 rounded-[1.5rem] focus:ring-4 focus:ring-brand-500/10 focus:border-brand-500 outline-none transition-all font-medium text-brand-950 dark:text-brand-50"
+                  />
+                </div>
+              </div>
+            )}
+
+            {formData.status === 'DNF' && (
+              <div className="space-y-4">
+                <label className="text-[10px] font-black text-brand-700 dark:text-brand-400 uppercase tracking-[0.2em] ml-1">Date Abandoned</label>
+                <div className="relative">
+                  <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 text-brand-600 dark:text-brand-500" size={20} />
+                  <input
+                    type="date"
+                    name="dateAbandoned"
+                    value={formData.dateAbandoned && (formData.dateAbandoned as any).seconds ? new Date((formData.dateAbandoned as any).seconds * 1000).toISOString().split('T')[0] : ''}
+                    onChange={(e) => {
+                      const date = e.target.value ? Timestamp.fromDate(new Date(e.target.value)) : null;
+                      setFormData(prev => ({ ...prev, dateAbandoned: date }));
+                    }}
+                    className="w-full pl-14 pr-6 py-4 bg-brand-50/50 dark:bg-brand-950/50 border border-brand-100 dark:border-brand-800 rounded-[1.5rem] focus:ring-4 focus:ring-brand-500/10 focus:border-brand-500 outline-none transition-all font-medium text-brand-950 dark:text-brand-50"
+                  />
+                </div>
+              </div>
+            )}
+
+            {formData.status === 'On Hold' && (
+              <div className="space-y-4">
+                <label className="text-[10px] font-black text-brand-700 dark:text-brand-400 uppercase tracking-[0.2em] ml-1">Date Paused</label>
+                <div className="relative">
+                  <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 text-brand-600 dark:text-brand-500" size={20} />
+                  <input
+                    type="date"
+                    name="datePaused"
+                    value={formData.datePaused && (formData.datePaused as any).seconds ? new Date((formData.datePaused as any).seconds * 1000).toISOString().split('T')[0] : ''}
+                    onChange={(e) => {
+                      const date = e.target.value ? Timestamp.fromDate(new Date(e.target.value)) : null;
+                      setFormData(prev => ({ ...prev, datePaused: date }));
+                    }}
+                    className="w-full pl-14 pr-6 py-4 bg-brand-50/50 dark:bg-brand-950/50 border border-brand-100 dark:border-brand-800 rounded-[1.5rem] focus:ring-4 focus:ring-brand-500/10 focus:border-brand-500 outline-none transition-all font-medium text-brand-950 dark:text-brand-50"
+                  />
                 </div>
               </div>
             )}
           </div>
-
-          {/* Genres */}
           <div className="space-y-4">
             <label className="text-[10px] font-black text-brand-700 dark:text-brand-400 uppercase tracking-[0.2em] ml-1">Genres*</label>
             <div className="relative">
@@ -340,21 +534,65 @@ export const BookForm: React.FC<BookFormProps> = ({ book, onClose, onSuccess, bo
               <select
                 onChange={(e) => {
                   const selectedGenre = e.target.value;
-                  if (selectedGenre && !formData.genre?.includes(selectedGenre)) {
+                  if (selectedGenre === "custom") {
+                    setShowCustomGenre(true);
+                  } else if (selectedGenre && !formData.genre?.includes(selectedGenre)) {
                     setFormData(prev => ({ ...prev, genre: [...(prev.genre || []), selectedGenre] }));
                   }
                   e.target.value = ""; // Reset select
                 }}
-                className="w-full pl-14 pr-6 py-4 bg-brand-50/50 dark:bg-brand-950/50 border border-brand-100 dark:border-brand-800 rounded-[1.5rem] focus:ring-4 focus:ring-brand-500/10 focus:border-brand-500 outline-none transition-all appearance-none font-medium text-brand-950 dark:text-brand-50"
+                className="w-full pl-14 pr-12 py-4 bg-brand-50/50 dark:bg-brand-950/50 border border-brand-100 dark:border-brand-800 rounded-[1.5rem] focus:ring-4 focus:ring-brand-500/10 focus:border-brand-500 outline-none transition-all appearance-none font-medium text-brand-950 dark:text-brand-50"
               >
-                <option value="">Select a genre...</option>
+                <option value="" className="bg-white dark:bg-brand-900">Select a genre...</option>
                 {GENRES.map(genre => (
-                  <option key={genre} value={genre} disabled={formData.genre?.includes(genre)}>
+                  <option key={genre} value={genre} disabled={formData.genre?.includes(genre)} className="bg-white dark:bg-brand-900 text-brand-950 dark:text-brand-50">
                     {genre}
                   </option>
                 ))}
+                <option value="custom" className="bg-white dark:bg-brand-900 text-brand-500 font-bold">+ Add Custom Genre</option>
               </select>
+              <ChevronDown className="absolute right-6 top-1/2 -translate-y-1/2 text-brand-400 pointer-events-none" size={20} />
             </div>
+
+            <AnimatePresence>
+              {showCustomGenre && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: 'auto', opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  className="flex gap-2"
+                >
+                  <input
+                    type="text"
+                    value={customGenre}
+                    onChange={(e) => setCustomGenre(e.target.value)}
+                    placeholder="Enter custom genre..."
+                    className="flex-1 px-6 py-3 bg-brand-50/50 dark:bg-brand-950/50 border border-brand-100 dark:border-brand-800 rounded-2xl focus:ring-4 focus:ring-brand-500/10 focus:border-brand-500 outline-none transition-all font-medium text-brand-950 dark:text-brand-50"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (customGenre.trim() && !formData.genre?.includes(customGenre.trim())) {
+                        setFormData(prev => ({ ...prev, genre: [...(prev.genre || []), customGenre.trim()] }));
+                        setCustomGenre('');
+                        setShowCustomGenre(false);
+                      }
+                    }}
+                    className="px-6 py-3 bg-brand-950 dark:bg-brand-500 text-white rounded-2xl font-bold hover:bg-brand-800 transition-all"
+                  >
+                    Add
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowCustomGenre(false)}
+                    className="px-4 py-3 bg-brand-50 dark:bg-brand-800 text-brand-600 dark:text-brand-400 rounded-2xl"
+                  >
+                    <X size={20} />
+                  </button>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
             <div className="flex flex-wrap gap-2 mt-3">
               {formData.genre?.map(genre => (
                 <span 
@@ -374,46 +612,6 @@ export const BookForm: React.FC<BookFormProps> = ({ book, onClose, onSuccess, bo
             </div>
           </div>
 
-          {/* Metadata */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <div className="space-y-4">
-              <label className="text-[10px] font-black text-brand-700 dark:text-brand-400 uppercase tracking-[0.2em] ml-1">Book Type</label>
-              <div className="flex gap-4">
-                {['Standalone', 'Series'].map((t) => (
-                  <button
-                    key={t}
-                    type="button"
-                    onClick={() => setFormData(prev => ({ ...prev, type: t as any }))}
-                    className={cn(
-                      "flex-1 py-4 px-6 rounded-2xl text-sm font-bold transition-all border-2",
-                      formData.type === t
-                        ? "bg-brand-950 dark:bg-brand-500 text-white border-brand-950 dark:border-brand-500 shadow-lg"
-                        : "bg-white dark:bg-brand-900 text-brand-700 dark:text-brand-400 border-brand-100 dark:border-brand-800 hover:border-brand-300 dark:hover:border-brand-500"
-                    )}
-                  >
-                    {t}
-                  </button>
-                ))}
-              </div>
-            </div>
-            {formData.type === 'Series' && (
-              <div className="space-y-4">
-                <label className="text-[10px] font-black text-brand-700 dark:text-brand-400 uppercase tracking-[0.2em] ml-1">Reading Order</label>
-                <div className="relative">
-                  <Hash className="absolute left-4 top-1/2 -translate-y-1/2 text-brand-600 dark:text-brand-500" size={20} />
-                  <input
-                    type="number"
-                    name="readingOrder"
-                    value={formData.readingOrder || ''}
-                    onChange={handleChange}
-                    placeholder="Ex: 1"
-                    className="w-full pl-14 pr-6 py-4 bg-brand-50/50 dark:bg-brand-950/50 border border-brand-100 dark:border-brand-800 rounded-[1.5rem] focus:ring-4 focus:ring-brand-500/10 focus:border-brand-500 outline-none transition-all font-medium placeholder:text-brand-400 dark:placeholder:text-brand-600 text-brand-950 dark:text-brand-50"
-                  />
-                </div>
-              </div>
-            )}
-          </div>
-
           {/* Metadata Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <div className="space-y-4">
@@ -423,6 +621,7 @@ export const BookForm: React.FC<BookFormProps> = ({ book, onClose, onSuccess, bo
                 name="pageCount"
                 value={formData.pageCount || ''}
                 onChange={handleChange}
+                onWheel={(e) => (e.target as HTMLInputElement).blur()}
                 placeholder="350"
                 className="w-full px-6 py-4 bg-brand-50/50 dark:bg-brand-950/50 border border-brand-100 dark:border-brand-800 rounded-[1.5rem] focus:ring-4 focus:ring-brand-500/10 focus:border-brand-500 outline-none transition-all font-medium placeholder:text-brand-400 dark:placeholder:text-brand-600 text-brand-950 dark:text-brand-50"
               />
@@ -453,42 +652,6 @@ export const BookForm: React.FC<BookFormProps> = ({ book, onClose, onSuccess, bo
                 />
               </div>
             )}
-          </div>
-
-          {/* Reading Dates */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <div className="space-y-4">
-              <label className="text-[10px] font-black text-brand-700 dark:text-brand-400 uppercase tracking-[0.2em] ml-1">Date Started</label>
-              <div className="relative">
-                <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 text-brand-600 dark:text-brand-500" size={20} />
-                <input
-                  type="date"
-                  name="dateStarted"
-                  value={formData.dateStarted && (formData.dateStarted as any).seconds ? new Date((formData.dateStarted as any).seconds * 1000).toISOString().split('T')[0] : ''}
-                  onChange={(e) => {
-                    const date = e.target.value ? Timestamp.fromDate(new Date(e.target.value)) : null;
-                    setFormData(prev => ({ ...prev, dateStarted: date }));
-                  }}
-                  className="w-full pl-14 pr-6 py-4 bg-brand-50/50 dark:bg-brand-950/50 border border-brand-100 dark:border-brand-800 rounded-[1.5rem] focus:ring-4 focus:ring-brand-500/10 focus:border-brand-500 outline-none transition-all font-medium text-brand-950 dark:text-brand-50"
-                />
-              </div>
-            </div>
-            <div className="space-y-4">
-              <label className="text-[10px] font-black text-brand-700 dark:text-brand-400 uppercase tracking-[0.2em] ml-1">Date Finished</label>
-              <div className="relative">
-                <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 text-brand-600 dark:text-brand-500" size={20} />
-                <input
-                  type="date"
-                  name="dateFinished"
-                  value={formData.dateFinished && (formData.dateFinished as any).seconds ? new Date((formData.dateFinished as any).seconds * 1000).toISOString().split('T')[0] : ''}
-                  onChange={(e) => {
-                    const date = e.target.value ? Timestamp.fromDate(new Date(e.target.value)) : null;
-                    setFormData(prev => ({ ...prev, dateFinished: date }));
-                  }}
-                  className="w-full pl-14 pr-6 py-4 bg-brand-50/50 dark:bg-brand-950/50 border border-brand-100 dark:border-brand-800 rounded-[1.5rem] focus:ring-4 focus:ring-brand-500/10 focus:border-brand-500 outline-none transition-all font-medium text-brand-950 dark:text-brand-50"
-                />
-              </div>
-            </div>
           </div>
 
           {/* Footer Actions */}

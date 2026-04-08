@@ -15,7 +15,7 @@ interface StatisticsProps {
   books: Book[];
 }
 
-const COLORS = ['#36251d', '#8f5a43', '#be8260', '#ece4e0', '#a8a29e', '#d6d3d1'];
+const COLORS = ['#6366f1', '#ec4899', '#f59e0b', '#10b981', '#ef4444', '#8b5cf6'];
 
 export const Statistics: React.FC<StatisticsProps> = ({ books }) => {
   const completedBooks = useMemo(() => books.filter(b => b.status === 'Completed'), [books]);
@@ -24,8 +24,11 @@ export const Statistics: React.FC<StatisticsProps> = ({ books }) => {
   const booksPerYear = useMemo(() => {
     const years: Record<string, number> = {};
     completedBooks.forEach(b => {
-      const year = b.dateFinished?.toDate().getFullYear();
-      if (year) years[year] = (years[year] || 0) + 1;
+      const finishDate = b.dateFinished && (b.dateFinished as any).toDate ? (b.dateFinished as any).toDate() : null;
+      if (finishDate) {
+        const year = finishDate.getFullYear();
+        years[year] = (years[year] || 0) + 1;
+      }
     });
     return Object.entries(years).map(([year, count]) => ({ year, count })).sort((a, b) => a.year.localeCompare(b.year));
   }, [completedBooks]);
@@ -108,7 +111,7 @@ export const Statistics: React.FC<StatisticsProps> = ({ books }) => {
           className="p-10 bg-white dark:bg-brand-900 rounded-[2.5rem] shadow-xl border border-brand-100 dark:border-brand-800"
         >
           <div className="flex items-center gap-3 mb-10">
-            <div className="p-2 bg-brand-950 dark:bg-brand-800 text-white rounded-xl">
+            <div className="p-2 bg-brand-950 dark:bg-brand-500 text-white rounded-xl">
               <Calendar size={20} />
             </div>
             <h3 className="text-xl font-serif font-bold text-brand-950 dark:text-brand-50">Books Read per Year</h3>
@@ -116,14 +119,14 @@ export const Statistics: React.FC<StatisticsProps> = ({ books }) => {
           <div className="h-80 w-full">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={booksPerYear}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#ece4e0" className="dark:stroke-brand-800" />
-                <XAxis dataKey="year" axisLine={false} tickLine={false} tick={{ fill: '#8f5a43', fontSize: 12, fontWeight: 600 }} />
-                <YAxis axisLine={false} tickLine={false} tick={{ fill: '#8f5a43', fontSize: 12, fontWeight: 600 }} />
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" className="dark:stroke-brand-800" />
+                <XAxis dataKey="year" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12, fontWeight: 600 }} />
+                <YAxis axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12, fontWeight: 600 }} />
                 <Tooltip 
-                  contentStyle={{ backgroundColor: '#36251d', borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)', color: '#ece4e0' }}
-                  cursor={{ fill: '#ece4e0', className: 'dark:fill-brand-800/50' }}
+                  contentStyle={{ backgroundColor: '#0f172a', borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)', color: '#f8fafc' }}
+                  cursor={{ fill: '#f1f5f9', className: 'dark:fill-brand-800/50' }}
                 />
-                <Bar dataKey="count" fill="#ece4e0" className="fill-brand-200 dark:fill-brand-200" radius={[8, 8, 0, 0]} barSize={40} />
+                <Bar dataKey="count" fill="#6366f1" radius={[8, 8, 0, 0]} barSize={40} />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -185,7 +188,7 @@ export const Statistics: React.FC<StatisticsProps> = ({ books }) => {
           className="p-10 bg-white dark:bg-brand-900 rounded-[2.5rem] shadow-xl border border-brand-100 dark:border-brand-800"
         >
           <div className="flex items-center gap-3 mb-10">
-            <div className="p-2 bg-brand-950 dark:bg-brand-800 text-white rounded-xl">
+            <div className="p-2 bg-brand-950 dark:bg-brand-500 text-white rounded-xl">
               <TrendingUp size={20} />
             </div>
             <h3 className="text-xl font-serif font-bold text-brand-950 dark:text-brand-50">Pages Read per Month</h3>
@@ -195,17 +198,17 @@ export const Statistics: React.FC<StatisticsProps> = ({ books }) => {
               <AreaChart data={pagesPerMonth}>
                 <defs>
                   <linearGradient id="colorPages" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#ece4e0" stopOpacity={0.5}/>
-                    <stop offset="95%" stopColor="#ece4e0" stopOpacity={0}/>
+                    <stop offset="5%" stopColor="#6366f1" stopOpacity={0.3}/>
+                    <stop offset="95%" stopColor="#6366f1" stopOpacity={0}/>
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#ece4e0" className="dark:stroke-brand-800" />
-                <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fill: '#8f5a43', fontSize: 12, fontWeight: 600 }} />
-                <YAxis axisLine={false} tickLine={false} tick={{ fill: '#8f5a43', fontSize: 12, fontWeight: 600 }} />
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" className="dark:stroke-brand-800" />
+                <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12, fontWeight: 600 }} />
+                <YAxis axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12, fontWeight: 600 }} />
                 <Tooltip 
-                  contentStyle={{ backgroundColor: '#36251d', borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)', color: '#ece4e0' }}
+                  contentStyle={{ backgroundColor: '#0f172a', borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)', color: '#f8fafc' }}
                 />
-                <Area type="monotone" dataKey="pages" stroke="#ece4e0" className="stroke-brand-200 dark:stroke-brand-200" strokeWidth={3} fillOpacity={1} fill="url(#colorPages)" />
+                <Area type="monotone" dataKey="pages" stroke="#6366f1" strokeWidth={3} fillOpacity={1} fill="url(#colorPages)" />
               </AreaChart>
             </ResponsiveContainer>
           </div>
@@ -219,7 +222,7 @@ export const Statistics: React.FC<StatisticsProps> = ({ books }) => {
           className="p-10 bg-white dark:bg-brand-900 rounded-[2.5rem] shadow-xl border border-brand-100 dark:border-brand-800"
         >
           <div className="flex items-center gap-3 mb-10">
-            <div className="p-2 bg-brand-950 dark:bg-brand-800 text-white rounded-xl">
+            <div className="p-2 bg-brand-950 dark:bg-brand-500 text-white rounded-xl">
               <Star size={20} />
             </div>
             <h3 className="text-xl font-serif font-bold text-brand-950 dark:text-brand-50">Rating Distribution</h3>
@@ -227,14 +230,14 @@ export const Statistics: React.FC<StatisticsProps> = ({ books }) => {
           <div className="h-80 w-full">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={ratingDist} layout="vertical">
-                <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#ece4e0" className="dark:stroke-brand-800" />
+                <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e2e8f0" className="dark:stroke-brand-800" />
                 <XAxis type="number" hide />
-                <YAxis dataKey="rating" type="category" axisLine={false} tickLine={false} tick={{ fill: '#8f5a43', fontSize: 12, fontWeight: 600 }} />
+                <YAxis dataKey="rating" type="category" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12, fontWeight: 600 }} />
                 <Tooltip 
-                  contentStyle={{ backgroundColor: '#36251d', borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)', color: '#ece4e0' }}
-                  cursor={{ fill: '#ece4e0', className: 'dark:fill-brand-800/50' }}
+                  contentStyle={{ backgroundColor: '#0f172a', borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)', color: '#f8fafc' }}
+                  cursor={{ fill: '#f1f5f9', className: 'dark:fill-brand-800/50' }}
                 />
-                <Bar dataKey="count" fill="#ece4e0" className="fill-brand-200 dark:fill-brand-200" radius={[0, 8, 8, 0]} barSize={30} />
+                <Bar dataKey="count" fill="#f59e0b" radius={[0, 8, 8, 0]} barSize={30} />
               </BarChart>
             </ResponsiveContainer>
           </div>

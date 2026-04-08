@@ -292,48 +292,6 @@ export const Profile: React.FC = () => {
               </div>
             </div>
           </div>
-
-          <div className="p-10 bg-white dark:bg-brand-900 rounded-[2.5rem] shadow-xl border border-brand-100 dark:border-brand-800">
-            <h3 className="text-xl font-serif font-bold text-brand-950 dark:text-brand-50 mb-8 flex items-center gap-3">
-              <Database className="text-brand-400 dark:text-brand-500" />
-              Data Management
-            </h3>
-            <div className="space-y-6">
-              <div>
-                <p className="text-sm font-bold text-brand-950 dark:text-brand-50">Sample Collection</p>
-                <p className="text-xs text-brand-500 dark:text-brand-400 mb-4">Quickly populate your library with a curated list of popular books.</p>
-                <button
-                  onClick={handleSeedData}
-                  disabled={seeding || seedSuccess}
-                  className={cn(
-                    "w-full py-4 px-6 rounded-2xl font-bold flex items-center justify-center gap-3 transition-all active:scale-95",
-                    seedSuccess 
-                      ? "bg-emerald-500 text-white shadow-lg shadow-emerald-500/20"
-                      : seeding
-                        ? "bg-brand-50 dark:bg-brand-950 text-brand-400 dark:text-brand-600 cursor-not-allowed"
-                        : "bg-brand-950 dark:bg-brand-500 text-white hover:bg-brand-800 dark:hover:bg-brand-600 shadow-lg shadow-brand-950/20"
-                  )}
-                >
-                  {seedSuccess ? (
-                    <>
-                      <CheckCircle2 size={20} />
-                      Imported Successfully!
-                    </>
-                  ) : seeding ? (
-                    <>
-                      <div className="w-5 h-5 border-2 border-brand-300 border-t-brand-600 rounded-full animate-spin" />
-                      Importing 63 Books...
-                    </>
-                  ) : (
-                    <>
-                      <FilePlus size={20} />
-                      Import Sample Collection
-                    </>
-                  )}
-                </button>
-              </div>
-            </div>
-          </div>
         </motion.div>
       </div>
 

@@ -20,9 +20,14 @@ export interface Book {
   pageCount?: number;
   dateStarted?: Timestamp;
   dateFinished?: Timestamp;
+  tentativeStartDate?: Timestamp;
+  dateAbandoned?: Timestamp;
+  datePaused?: Timestamp;
   review?: string;
   personalNotes?: string;
   isFavorite: boolean;
+  isPublic?: boolean;
+  addedBy?: string;
   createdAt: Timestamp;
   updatedAt: Timestamp;
 }
@@ -54,7 +59,7 @@ export const GENRES = [
   'Romance', 'Fantasy', 'Thriller', 'Mystery', 'Literary Fiction', 
   'Science Fiction', 'Historical Fiction', 'Young Adult', 'Non-Fiction', 
   'Memoir', 'Self-Help', 'Horror', 'Dark Romance', 'Paranormal Romance', 
-  'Contemporary', 'Classic', 'Poetry', 'Graphic Novel'
+  'Contemporary', 'Classic', 'Poetry', 'Graphic Novel', 'Mythology', 'Fiction'
 ];
 
 export const STATUS_OPTIONS: BookStatus[] = [

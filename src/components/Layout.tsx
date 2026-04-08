@@ -1,9 +1,8 @@
 import React, { ReactNode } from 'react';
 import { useAuthState } from 'react-firebase-hooks/auth';
-import { auth } from '../firebase';
-import { LayoutDashboard, Library, Layers, BarChart3, User, PlusCircle, Search, Menu, X, BookOpen } from 'lucide-react';
+import { auth, signOut } from '../firebase';
+import { LayoutDashboard, Library, Layers, BarChart3, User, PlusCircle, Search, Menu, X, BookOpen, ChevronLeft, ChevronRight, LogOut } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { LogoutButton } from './Auth';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
@@ -33,8 +32,11 @@ const NAV_ITEMS = [
 export const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, onAddBook, books }) => {
   const [user] = useAuthState(auth);
   const [isSidebarOpen, setIsSidebarOpen] = React.useState(false);
+  const [isCollapsed, setIsCollapsed] = React.useState(false);
 
   if (!user) return <>{children}</>;
+
+  const handleLogout = () => signOut(auth);
 
   return (
     <div className="min-h-screen bg-[var(--bg-main)] flex flex-col md:flex-row transition-colors duration-300">
@@ -62,15 +64,26 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTa
             animate={{ x: 0 }}
             exit={{ x: -300 }}
             className={cn(
-              "fixed inset-y-0 left-0 z-50 w-72 bg-white dark:bg-brand-950 border-r border-brand-100 dark:border-brand-900 flex flex-col transition-all duration-300 md:relative md:translate-x-0",
+              "fixed inset-y-0 left-0 z-50 bg-white dark:bg-brand-950 border-r border-brand-100 dark:border-brand-900 flex flex-col transition-all duration-300 md:sticky md:top-0 md:h-screen md:translate-x-0",
+              isCollapsed ? "w-20" : "w-72",
               !isSidebarOpen && "hidden md:flex"
             )}
           >
-            <div className="p-8 flex items-center gap-3">
-              <div className="w-10 h-10 bg-brand-950 dark:bg-brand-500 text-white rounded-2xl flex items-center justify-center shadow-xl shadow-brand-950/20">
-                <BookOpen size={24} />
+            <div className={cn("p-6 flex items-center justify-between", isCollapsed && "px-4")}>
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-brand-950 dark:bg-brand-500 text-white rounded-2xl flex items-center justify-center shadow-xl shadow-brand-950/20 shrink-0">
+                  <BookOpen size={24} />
+                </div>
+                {!isCollapsed && (
+                  <span className="font-serif font-bold text-brand-950 dark:text-brand-50 text-2xl tracking-tighter">The SoulStories</span>
+                )}
               </div>
-              <span className="font-serif font-bold text-brand-950 dark:text-brand-50 text-2xl tracking-tighter">The SoulStories</span>
+              <button 
+                onClick={() => setIsCollapsed(!isCollapsed)}
+                className="hidden md:flex p-1.5 text-brand-400 hover:bg-brand-50 dark:hover:bg-brand-900 rounded-lg transition-colors"
+              >
+                {isCollapsed ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
+              </button>
             </div>
 
             <nav className="px-4 space-y-1">
@@ -85,12 +98,14 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTa
                     "w-full flex items-center gap-4 px-4 py-3 rounded-2xl transition-all duration-300 group relative",
                     activeTab === item.id 
                       ? "bg-brand-950 dark:bg-brand-500 text-white shadow-lg shadow-brand-950/20" 
-                      : "text-brand-600 dark:text-brand-300 hover:bg-brand-50 dark:hover:bg-brand-900 hover:text-brand-950 dark:hover:text-brand-50"
+                      : "text-brand-600 dark:text-brand-300 hover:bg-brand-50 dark:hover:bg-brand-900 hover:text-brand-950 dark:hover:text-brand-50",
+                    isCollapsed && "justify-center px-0"
                   )}
+                  title={isCollapsed ? item.label : ""}
                 >
                   <item.icon size={20} className={cn(activeTab === item.id ? "text-white" : "text-brand-500 dark:text-brand-400 group-hover:text-brand-950 dark:group-hover:text-brand-50")} />
-                  <span className="font-bold tracking-tight">{item.label}</span>
-                  {activeTab === item.id && (
+                  {!isCollapsed && <span className="font-bold tracking-tight">{item.label}</span>}
+                  {activeTab === item.id && !isCollapsed && (
                     <motion.div 
                       layoutId="activeNav"
                       className="ml-auto w-1.5 h-1.5 bg-white rounded-full"
@@ -100,42 +115,63 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTa
               ))}
             </nav>
 
-            <div className="p-6 border-t border-brand-100 dark:border-brand-900 space-y-4 mt-auto">
+            <div className={cn("p-4 border-t border-brand-100 dark:border-brand-900 space-y-4 mt-auto", isCollapsed && "px-2")}>
               <button
                 onClick={onAddBook}
-                className="w-full flex items-center justify-center gap-3 py-4 px-6 bg-brand-950 dark:bg-brand-500 text-white rounded-2xl font-bold hover:bg-brand-900 dark:hover:bg-brand-600 transition-all shadow-xl shadow-brand-950/20 active:scale-95"
+                className={cn(
+                  "w-full flex items-center justify-center gap-3 py-4 bg-brand-950 dark:bg-brand-500 text-white rounded-2xl font-bold hover:bg-brand-900 dark:hover:bg-brand-600 transition-all shadow-xl shadow-brand-950/20 active:scale-95",
+                  isCollapsed ? "px-0" : "px-6"
+                )}
+                title={isCollapsed ? "Add Book" : ""}
               >
                 <PlusCircle size={20} />
-                <span>Add Book</span>
+                {!isCollapsed && <span>Add Book</span>}
               </button>
               
-              <div className="flex items-center gap-3 px-4 py-3 bg-brand-50/50 dark:bg-brand-900/50 rounded-2xl border border-brand-100 dark:border-brand-900">
-                <img 
-                  src={user.photoURL || `https://ui-avatars.com/api/?name=${user.displayName || 'User'}`} 
-                  alt="Avatar" 
-                  className="w-10 h-10 rounded-full border-2 border-white dark:border-brand-800 shadow-sm"
-                  referrerPolicy="no-referrer"
-                />
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-bold text-brand-950 dark:text-brand-50 truncate">{user.displayName}</p>
-                  <p className="text-[10px] font-bold text-brand-600 dark:text-brand-300 truncate uppercase tracking-wider">{user.email}</p>
+              {!isCollapsed && (
+                <div className="flex items-center gap-3 px-4 py-3 bg-brand-50/50 dark:bg-brand-900/50 rounded-2xl border border-brand-100 dark:border-brand-900">
+                  <img 
+                    src={user.photoURL || `https://ui-avatars.com/api/?name=${user.displayName || 'User'}`} 
+                    alt="Avatar" 
+                    className="w-10 h-10 rounded-full border-2 border-white dark:border-brand-800 shadow-sm"
+                    referrerPolicy="no-referrer"
+                  />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-bold text-brand-950 dark:text-brand-50 truncate">{user.displayName}</p>
+                    <p className="text-[10px] font-bold text-brand-600 dark:text-brand-300 truncate uppercase tracking-wider">{user.email}</p>
+                  </div>
                 </div>
-              </div>
-              <LogoutButton />
+              )}
+
+              <button
+                onClick={handleLogout}
+                className={cn(
+                  "w-full flex items-center gap-3 px-4 py-3 text-brand-600 dark:text-brand-400 hover:bg-brand-50 dark:hover:bg-brand-900 rounded-2xl transition-all font-bold",
+                  isCollapsed && "justify-center px-0"
+                )}
+                title={isCollapsed ? "Sign Out" : ""}
+              >
+                <LogOut size={20} />
+                {!isCollapsed && <span>Sign Out</span>}
+              </button>
             </div>
           </motion.aside>
         )}
       </AnimatePresence>
 
       {/* Main Content */}
-      <main className="flex-1 flex flex-col min-w-0">
+      <main className="flex-1 flex flex-col min-w-0 min-h-screen">
         <div className="flex-1 p-4 md:p-10 max-w-7xl mx-auto w-full">
           {children}
         </div>
-        <footer className="p-8 text-center border-t border-brand-100 dark:border-brand-900/50 mb-20 md:mb-0">
-          <p className="text-brand-500 dark:text-brand-400 font-medium tracking-tight">
-            Created by <span className="text-brand-950 dark:text-brand-200 font-bold">@Hetasvi Ahir</span>
-          </p>
+        
+        {/* Footer */}
+        <footer className="w-full pt-6 pb-24 md:pb-6 px-4 bg-white dark:bg-brand-950 border-t border-brand-100 dark:border-brand-900 mt-auto">
+          <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-center gap-4">
+            <p className="text-[11px] font-black text-brand-500 dark:text-brand-400 uppercase tracking-[0.2em] opacity-80">
+              Created by <span className="text-brand-950 dark:text-brand-50">@Hetasvi Ahir</span>
+            </p>
+          </div>
         </footer>
       </main>
 

@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useRef } from 'react';
+import { useAuthState } from 'react-firebase-hooks/auth';
 import { Book, BookStatus, GENRES } from '../types';
 import { BookCard } from './BookCard';
 import { Search, Filter, Grid, List, ChevronDown, X, Star, Heart, Layers, ArrowUpDown, SlidersHorizontal, User, Trash2, FileUp } from 'lucide-react';
@@ -22,6 +23,7 @@ interface LibraryProps {
 }
 
 export const Library: React.FC<LibraryProps> = ({ books, onBookClick, onEdit, onDelete }) => {
+  const [user] = useAuthState(auth);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<BookStatus | 'All'>('All');
@@ -388,6 +390,7 @@ export const Library: React.FC<LibraryProps> = ({ books, onBookClick, onEdit, on
               <BookCard
                 key={book.id}
                 book={book}
+                currentUserId={user?.uid}
                 onClick={() => onBookClick(book)}
                 onEdit={(e) => { e.stopPropagation(); onEdit(book); }}
                 onDelete={(e) => { e.stopPropagation(); onDelete(book); }}

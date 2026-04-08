@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuthState } from 'react-firebase-hooks/auth';
-import { auth, db, collection, onSnapshot, query, where, orderBy, deleteDoc, doc, handleFirestoreError, OperationType, getDoc } from './firebase';
+import { auth, db, collection, onSnapshot, query, where, orderBy, deleteDoc, doc, handleFirestoreError, OperationType, getDoc, or } from './firebase';
 import { Book } from './types';
 import { Auth } from './components/Auth';
 import { Layout } from './components/Layout';
@@ -71,7 +71,10 @@ export default function App() {
 
     const q = query(
       collection(db, 'books'),
-      where('userId', '==', user.uid),
+      or(
+        where('userId', '==', user.uid),
+        where('isPublic', '==', true)
+      ),
       orderBy('createdAt', 'desc')
     );
 

@@ -30,7 +30,22 @@ export const BookModal: React.FC<BookModalProps> = ({ book, onClose, onEdit, onD
 
   const handleStatusChange = async (newStatus: Book['status']) => {
     try {
-      await updateDoc(doc(db, 'books', book.id), { status: newStatus });
+      const now = new Date();
+      const updates: any = { status: newStatus, updatedAt: now };
+
+      // Basic date logic for quick status changes
+      if (newStatus === 'Completed') {
+        updates.dateFinished = now;
+        if (!book.dateStarted) updates.dateStarted = now;
+      } else if (newStatus === 'Currently Reading') {
+        if (!book.dateStarted) updates.dateStarted = now;
+      } else if (newStatus === 'DNF') {
+        updates.dateAbandoned = now;
+      } else if (newStatus === 'On Hold') {
+        updates.datePaused = now;
+      }
+
+      await updateDoc(doc(db, 'books', book.id), updates);
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, `books/${book.id}`);
     }
@@ -204,21 +219,39 @@ export const BookModal: React.FC<BookModalProps> = ({ book, onClose, onEdit, onD
           )}
 
           {/* Dates */}
-          <div className="mt-12 pt-8 border-t border-brand-100 dark:border-brand-800 flex flex-wrap gap-8 text-xs text-brand-600 dark:text-brand-500 font-bold uppercase tracking-widest">
+          <div className="mt-12 pt-8 border-t border-brand-100 dark:border-brand-800 flex flex-wrap gap-8 text-[10px] text-brand-600 dark:text-brand-500 font-black uppercase tracking-widest">
+            {book.tentativeStartDate && (
+              <div className="flex items-center gap-2">
+                <Calendar size={14} className="text-brand-400" />
+                <span>Tentative Start: {format(book.tentativeStartDate.toDate(), 'MMM d, yyyy')}</span>
+              </div>
+            )}
             {book.dateStarted && (
               <div className="flex items-center gap-2">
-                <Calendar size={14} />
+                <Calendar size={14} className="text-brand-400" />
                 <span>Started: {format(book.dateStarted.toDate(), 'MMM d, yyyy')}</span>
               </div>
             )}
             {book.dateFinished && (
               <div className="flex items-center gap-2">
-                <Calendar size={14} />
+                <Calendar size={14} className="text-brand-400" />
                 <span>Finished: {format(book.dateFinished.toDate(), 'MMM d, yyyy')}</span>
               </div>
             )}
+            {book.dateAbandoned && (
+              <div className="flex items-center gap-2">
+                <Calendar size={14} className="text-rose-400" />
+                <span>Abandoned: {format(book.dateAbandoned.toDate(), 'MMM d, yyyy')}</span>
+              </div>
+            )}
+            {book.datePaused && (
+              <div className="flex items-center gap-2">
+                <Calendar size={14} className="text-sky-400" />
+                <span>Paused: {format(book.datePaused.toDate(), 'MMM d, yyyy')}</span>
+              </div>
+            )}
             <div className="flex items-center gap-2">
-              <Calendar size={14} />
+              <Calendar size={14} className="text-brand-300" />
               <span>Added: {format(book.createdAt.toDate(), 'MMM d, yyyy')}</span>
             </div>
           </div>

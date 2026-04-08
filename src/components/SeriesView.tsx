@@ -1,6 +1,6 @@
 import React, { useMemo, useRef } from 'react';
 import { Book } from '../types';
-import { Layers, CheckCircle2, Circle, ChevronRight, ChevronLeft, TrendingUp, Award, BarChart3, Star } from 'lucide-react';
+import { Layers, CheckCircle2, Circle, ChevronRight, ChevronLeft, TrendingUp, Award, BarChart3, Star, Link as LinkIcon } from 'lucide-react';
 import { motion } from 'motion/react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -63,32 +63,41 @@ const SeriesSection: React.FC<{
             
             <h2 className="text-2xl md:text-3xl font-serif font-bold text-brand-950 dark:text-brand-50 tracking-tight leading-tight">{name}</h2>
             
-            <div className="flex flex-wrap gap-4 items-center">
-              <div className="flex items-center gap-2 bg-white dark:bg-brand-950 px-3 py-1.5 rounded-xl border border-brand-100 dark:border-brand-800 shadow-sm">
-                <Award size={14} className="text-brand-500" />
-                <span className="text-[11px] font-black text-brand-950 dark:text-brand-100 uppercase tracking-wider">{completedCount} / {seriesBooks.length} Read</span>
-              </div>
-              
-              {avgRating > 0 && (
+              <div className="flex flex-wrap gap-4 items-center">
                 <div className="flex items-center gap-2 bg-white dark:bg-brand-950 px-3 py-1.5 rounded-xl border border-brand-100 dark:border-brand-800 shadow-sm">
-                  <Star size={14} className="text-amber-400" fill="currentColor" />
-                  <span className="text-[11px] font-black text-brand-950 dark:text-brand-100 uppercase tracking-wider">{avgRating.toFixed(1)} Rating</span>
+                  <Award size={14} className="text-brand-500" />
+                  <span className="text-[11px] font-black text-brand-950 dark:text-brand-100 uppercase tracking-wider">{completedCount} / {seriesBooks.length} Read</span>
                 </div>
-              )}
-              
-              <div className="flex items-center gap-2 bg-white dark:bg-brand-950 px-3 py-1.5 rounded-xl border border-brand-100 dark:border-brand-800 shadow-sm">
-                <BarChart3 size={14} className="text-brand-600 dark:text-brand-400" />
-                <span className="text-[11px] font-black text-brand-950 dark:text-brand-100 uppercase tracking-wider">{seriesBooks.reduce((acc, b) => acc + (b.pageCount || 0), 0)} Pages</span>
-              </div>
+                
+                {avgRating > 0 && (
+                  <div className="flex items-center gap-2 bg-white dark:bg-brand-950 px-3 py-1.5 rounded-xl border border-brand-100 dark:border-brand-800 shadow-sm">
+                    <Star size={14} className="text-amber-400" fill="currentColor" />
+                    <span className="text-[11px] font-black text-brand-950 dark:text-brand-100 uppercase tracking-wider">{avgRating.toFixed(1)} Rating</span>
+                  </div>
+                )}
+                
+                <div className="flex items-center gap-2 bg-white dark:bg-brand-950 px-3 py-1.5 rounded-xl border border-brand-100 dark:border-brand-800 shadow-sm">
+                  <BarChart3 size={14} className="text-brand-600 dark:text-brand-400" />
+                  <span className="text-[11px] font-black text-brand-950 dark:text-brand-100 uppercase tracking-wider">{seriesBooks.reduce((acc, b) => acc + (b.pageCount || 0), 0)} Pages</span>
+                </div>
 
-              <button
-                onClick={() => onAddBook(name)}
-                className="flex items-center gap-2 bg-brand-950 dark:bg-brand-500 text-white px-4 py-1.5 rounded-xl shadow-md hover:bg-brand-800 dark:hover:bg-brand-600 transition-all active:scale-95"
-              >
-                <Layers size={14} />
-                <span className="text-[11px] font-black uppercase tracking-wider">Add Book</span>
-              </button>
-            </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => onAddBook(name)}
+                    className="flex items-center gap-2 bg-brand-950 dark:bg-brand-500 text-white px-4 py-1.5 rounded-xl shadow-md hover:bg-brand-800 dark:hover:bg-brand-600 transition-all active:scale-95"
+                  >
+                    <Layers size={14} />
+                    <span className="text-[11px] font-black uppercase tracking-wider">Add New</span>
+                  </button>
+                  <button
+                    onClick={() => onAddBook(name)} // We'll handle the "link" logic inside BookForm when seriesName is passed
+                    className="flex items-center gap-2 bg-white dark:bg-brand-950 text-brand-950 dark:text-brand-100 px-4 py-1.5 rounded-xl shadow-md border border-brand-100 dark:border-brand-800 hover:bg-brand-50 dark:hover:bg-brand-900 transition-all active:scale-95"
+                  >
+                    <LinkIcon size={14} className="text-brand-500" />
+                    <span className="text-[11px] font-black uppercase tracking-wider">Link Existing</span>
+                  </button>
+                </div>
+              </div>
           </div>
           
           <div className="w-full space-y-2 bg-white dark:bg-brand-950 p-4 rounded-2xl border border-brand-100 dark:border-brand-800 shadow-lg shadow-brand-950/5">

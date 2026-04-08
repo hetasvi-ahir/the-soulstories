@@ -39,6 +39,8 @@ service cloud.firestore {
     //   - review: string (optional, max 2000)
     //   - personalNotes: string (optional, max 500)
     //   - isFavorite: bool (optional)
+    //   - isPublic: bool (optional)
+    //   - addedBy: string (optional)
     //   - createdAt: timestamp (required)
     //   - updatedAt: timestamp (required)
     //
@@ -116,6 +118,8 @@ service cloud.firestore {
              (!('review' in data) || (data.review is string && data.review.size() <= 2000)) &&
              (!('personalNotes' in data) || (data.personalNotes is string && data.personalNotes.size() <= 500)) &&
              (!('isFavorite' in data) || data.isFavorite is bool) &&
+             (!('isPublic' in data) || data.isPublic is bool) &&
+             (!('addedBy' in data) || data.addedBy is string) &&
              (!('seriesName' in data) || data.seriesName is string) &&
              (!('seriesPosition' in data) || data.seriesPosition == null || data.seriesPosition is number) &&
              (!('readingOrder' in data) || data.readingOrder == null || data.readingOrder is number) &&
@@ -149,7 +153,7 @@ service cloud.firestore {
     }
 
     match /books/{bookId} {
-      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || resource.data.isPublic == true);
       allow create: if isAuthenticated() && isValidBook(request.resource.data);
       allow update: if isAuthenticated() && resource.data.userId == request.auth.uid && isValidBook(request.resource.data);
       allow delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
