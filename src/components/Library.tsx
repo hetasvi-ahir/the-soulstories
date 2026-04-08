@@ -2,7 +2,7 @@ import React, { useState, useMemo, useRef } from 'react';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { Book, BookStatus, GENRES } from '../types';
 import { BookCard } from './BookCard';
-import { Search, Filter, Grid, List, ChevronDown, X, Star, Heart, Layers, ArrowUpDown, SlidersHorizontal, User, Trash2, FileUp } from 'lucide-react';
+import { Search, Filter, Grid, List, ChevronDown, X, Star, Heart, Layers, ArrowUpDown, SlidersHorizontal, User, Trash2, FileUp, Plus, ChevronLeft, ChevronRight, Clock, Edit2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -14,6 +14,113 @@ import { toast } from 'sonner';
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
+
+const SuggestedBookCard: React.FC<{ 
+  book: Book; 
+  onAdd: (book: Book) => void;
+  isAlreadyInLibrary: boolean;
+}> = ({ book, onAdd, isAlreadyInLibrary }) => {
+  return (
+    <motion.div
+      whileHover={{ y: -4 }}
+      className="w-32 flex-shrink-0 group cursor-pointer"
+    >
+      <div className="relative aspect-square rounded-2xl overflow-hidden shadow-lg mb-2 border border-brand-100 dark:border-brand-800 group-hover:ring-2 group-hover:ring-brand-500 transition-all">
+        <img 
+          src={book.coverImageUrl || `https://picsum.photos/seed/${book.id}/200/200`} 
+          alt={book.title} 
+          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+          referrerPolicy="no-referrer"
+        />
+        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center p-2 text-center">
+          {isAlreadyInLibrary ? (
+            <span className="text-[8px] font-black text-white uppercase tracking-widest bg-emerald-500/80 px-2 py-1 rounded-lg backdrop-blur-sm">
+              In Library
+            </span>
+          ) : (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onAdd(book);
+              }}
+              className="p-2 bg-white dark:bg-brand-500 text-brand-950 dark:text-white rounded-full shadow-xl transform scale-0 group-hover:scale-100 transition-transform duration-300 hover:bg-brand-500 hover:text-white dark:hover:bg-brand-400"
+            >
+              <Plus size={16} />
+            </button>
+          )}
+        </div>
+      </div>
+      <h4 className="text-[10px] font-bold text-brand-950 dark:text-brand-50 line-clamp-1 text-center px-1">{book.title}</h4>
+      <p className="text-[8px] font-medium text-brand-500 text-center truncate">by {book.author}</p>
+    </motion.div>
+  );
+};
+
+const SuggestedSection: React.FC<{ 
+  books: Book[]; 
+  myBooks: Book[];
+  onAdd: (book: Book) => void;
+}> = ({ books, myBooks, onAdd }) => {
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  const scroll = (direction: 'left' | 'right') => {
+    if (scrollRef.current) {
+      const { scrollLeft, clientWidth } = scrollRef.current;
+      const scrollAmount = clientWidth * 0.6;
+      const scrollTo = direction === 'left' ? scrollLeft - scrollAmount : scrollLeft + scrollAmount;
+      scrollRef.current.scrollTo({ left: scrollTo, behavior: 'smooth' });
+    }
+  };
+
+  if (books.length === 0) return null;
+
+  return (
+    <div className="space-y-4 mb-12">
+      <div className="flex items-center justify-between px-2">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 bg-brand-500/10 text-brand-500 rounded-xl flex items-center justify-center">
+            <Heart size={16} fill="currentColor" />
+          </div>
+          <h2 className="text-sm font-black text-brand-950 dark:text-brand-50 uppercase tracking-[0.2em]">Books suggested by others</h2>
+        </div>
+        <div className="flex gap-2">
+          <button 
+            onClick={() => scroll('left')}
+            className="p-2 bg-white dark:bg-brand-900 border border-brand-100 dark:border-brand-800 rounded-xl text-brand-600 dark:text-brand-400 hover:bg-brand-50 dark:hover:bg-brand-800 transition-all"
+          >
+            <ChevronLeft size={16} />
+          </button>
+          <button 
+            onClick={() => scroll('right')}
+            className="p-2 bg-white dark:bg-brand-900 border border-brand-100 dark:border-brand-800 rounded-xl text-brand-600 dark:text-brand-400 hover:bg-brand-50 dark:hover:bg-brand-800 transition-all"
+          >
+            <ChevronRight size={16} />
+          </button>
+        </div>
+      </div>
+      
+      <div 
+        ref={scrollRef}
+        className="flex gap-4 overflow-x-auto scrollbar-hide pb-4 px-2 scroll-smooth"
+      >
+        {books.map(book => {
+          const isAlreadyInLibrary = myBooks.some(b => 
+            b.title.toLowerCase() === book.title.toLowerCase() && 
+            b.author.toLowerCase() === book.author.toLowerCase()
+          );
+          return (
+            <SuggestedBookCard 
+              key={book.id} 
+              book={book} 
+              onAdd={onAdd} 
+              isAlreadyInLibrary={isAlreadyInLibrary}
+            />
+          );
+        })}
+      </div>
+    </div>
+  );
+};
 
 interface LibraryProps {
   books: Book[];
@@ -175,8 +282,18 @@ export const Library: React.FC<LibraryProps> = ({ books, onBookClick, onEdit, on
     }
   };
 
+  const myBooks = useMemo(() => {
+    if (!user) return [];
+    return books.filter(b => b.userId === user.uid);
+  }, [books, user]);
+
+  const suggestedBooks = useMemo(() => {
+    if (!user) return [];
+    return books.filter(b => b.userId !== user.uid && b.isPublic);
+  }, [books, user]);
+
   const filteredBooks = useMemo(() => {
-    return books
+    return myBooks
       .filter(book => {
         const matchesSearch = 
           book.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -194,9 +311,47 @@ export const Library: React.FC<LibraryProps> = ({ books, onBookClick, onEdit, on
         if (sortBy === 'title') return a.title.localeCompare(b.title);
         if (sortBy === 'author') return a.author.localeCompare(b.author);
         if (sortBy === 'rating') return (b.rating || 0) - (a.rating || 0);
-        return b.createdAt.toMillis() - a.createdAt.toMillis();
+        const timeA = a.createdAt?.toMillis() || 0;
+        const timeB = b.createdAt?.toMillis() || 0;
+        return timeB - timeA;
       });
-  }, [books, searchQuery, statusFilter, genreFilter, sortBy]);
+  }, [myBooks, searchQuery, statusFilter, genreFilter, sortBy]);
+
+  const addToMyLibrary = async (book: Book) => {
+    if (!user) return;
+    
+    // Check if already in library
+    const isDuplicate = myBooks.some(b => 
+      b.title.toLowerCase() === book.title.toLowerCase() && 
+      b.author.toLowerCase() === book.author.toLowerCase()
+    );
+
+    if (isDuplicate) {
+      toast.error('This book is already in your library!');
+      return;
+    }
+
+    try {
+      await addDoc(collection(db, 'books'), {
+        userId: user.uid,
+        addedBy: user.displayName || 'Anonymous',
+        title: book.title,
+        author: book.author,
+        genre: book.genre,
+        coverImageUrl: book.coverImageUrl,
+        pageCount: book.pageCount,
+        status: 'To Read',
+        isPublic: true,
+        isFavorite: false,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
+      toast.success(`"${book.title}" added to your library!`);
+    } catch (error) {
+      console.error('Error adding book:', error);
+      toast.error('Failed to add book to library.');
+    }
+  };
 
   const toggleGenre = (genre: string) => {
     setGenreFilter(prev => 
@@ -210,7 +365,7 @@ export const Library: React.FC<LibraryProps> = ({ books, onBookClick, onEdit, on
       <header className="flex flex-col lg:flex-row lg:items-center justify-between gap-8">
         <div className="space-y-2">
           <h1 className="text-6xl font-serif font-bold text-treehouse tracking-tighter">Your Library</h1>
-          <p className="text-treehouse font-medium text-lg">Organize and explore your collection of <span className="text-treehouse font-bold">{books.length} books</span>.</p>
+          <p className="text-treehouse font-medium text-lg">Organize and explore your collection of <span className="text-treehouse font-bold">{myBooks.length} books</span>.</p>
         </div>
         
         <div className="flex flex-col sm:flex-row items-center gap-4">
@@ -363,7 +518,7 @@ export const Library: React.FC<LibraryProps> = ({ books, onBookClick, onEdit, on
               
               <div className="pt-8 border-t border-brand-50 dark:border-brand-800 flex justify-between items-center">
                 <p className="text-sm text-brand-500 dark:text-brand-400 font-serif italic">
-                  Showing <span className="text-brand-950 dark:text-brand-400 font-bold not-italic">{filteredBooks.length}</span> of {books.length} books
+                  Showing <span className="text-brand-950 dark:text-brand-400 font-bold not-italic">{filteredBooks.length}</span> of {myBooks.length} books
                 </p>
                 <button 
                   onClick={() => {
@@ -381,6 +536,16 @@ export const Library: React.FC<LibraryProps> = ({ books, onBookClick, onEdit, on
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Suggested Section */}
+      <SuggestedSection books={suggestedBooks} myBooks={myBooks} onAdd={addToMyLibrary} />
+
+      <div className="flex items-center gap-3 px-2 mb-6">
+        <div className="w-8 h-8 bg-brand-950 dark:bg-brand-500 text-white rounded-xl flex items-center justify-center shadow-lg rotate-3">
+          <Layers size={16} />
+        </div>
+        <h2 className="text-sm font-black text-brand-950 dark:text-brand-50 uppercase tracking-[0.2em]">Books in your library</h2>
+      </div>
 
       {/* Content Grid/List */}
       {filteredBooks.length > 0 ? (
@@ -517,11 +682,3 @@ export const Library: React.FC<LibraryProps> = ({ books, onBookClick, onEdit, on
     </div>
   );
 };
-
-const Edit2 = ({ size }: { size: number }) => (
-  <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
-);
-
-const Clock = ({ size }: { size: number }) => (
-  <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-);

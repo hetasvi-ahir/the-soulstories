@@ -18,7 +18,7 @@ interface BookCardProps {
 }
 
 export const BookCard: React.FC<BookCardProps> = ({ book, onClick, onEdit, onDelete, currentUserId }) => {
-  const isOwner = !currentUserId || book.userId === currentUserId;
+  const isOwner = currentUserId ? book.userId === currentUserId : false;
   const statusColors = {
     'To Read': 'bg-brand-50/80 text-brand-600 border-brand-200 dark:bg-brand-900/80 dark:text-brand-300 dark:border-brand-800',
     'Currently Reading': 'bg-amber-50/80 text-amber-700 border-amber-200 dark:bg-amber-900/80 dark:text-amber-400 dark:border-amber-800',
