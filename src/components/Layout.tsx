@@ -1,7 +1,7 @@
 import React, { ReactNode } from 'react';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth, signOut } from '../firebase';
-import { LayoutDashboard, Library as LibraryIcon, Users, Layers, BarChart3, User, PlusCircle, Search, Menu, X, BookOpen, ChevronLeft, ChevronRight, LogOut } from 'lucide-react';
+import { LayoutDashboard, Library as LibraryIcon, Layers, BarChart3, User, PlusCircle, Search, Menu, X, BookOpen, ChevronLeft, ChevronRight, LogOut } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -22,8 +22,7 @@ interface LayoutProps {
 
 const NAV_ITEMS = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { id: 'my-library', label: 'My Library', icon: LibraryIcon },
-  { id: 'community', label: 'Community', icon: Users },
+  { id: 'library', label: 'Library', icon: LibraryIcon },
   { id: 'bookshelf', label: 'My Bookshelf', icon: BookOpen },
   { id: 'series', label: 'Series', icon: Layers },
   { id: 'stats', label: 'Statistics', icon: BarChart3 },

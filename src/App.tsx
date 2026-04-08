@@ -145,18 +145,8 @@ export default function App() {
               {activeTab === 'dashboard' && (
                 <Dashboard books={books} onBookClick={(book) => setViewingBookId(book.id)} />
               )}
-              {activeTab === 'my-library' && (
+              {activeTab === 'library' && (
                 <Library 
-                  mode="personal"
-                  books={books} 
-                  onBookClick={(book) => setViewingBookId(book.id)} 
-                  onEdit={(book) => setEditingBookId(book.id)}
-                  onDelete={handleDeleteBook}
-                />
-              )}
-              {activeTab === 'community' && (
-                <Library 
-                  mode="community"
                   books={books} 
                   onBookClick={(book) => setViewingBookId(book.id)} 
                   onEdit={(book) => setEditingBookId(book.id)}
