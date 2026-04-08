@@ -2,7 +2,7 @@ import React, { useState, useMemo, useRef } from 'react';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { Book, BookStatus, GENRES } from '../types';
 import { BookCard } from './BookCard';
-import { Search, Filter, Grid, List, ChevronDown, X, Star, Heart, Layers, ArrowUpDown, SlidersHorizontal, User, Trash2, FileUp, Plus, ChevronLeft, ChevronRight, Clock, Edit2 } from 'lucide-react';
+import { Search, Filter, Grid, List, ChevronDown, X, Star, Heart, Layers, ArrowUpDown, SlidersHorizontal, User, Trash2, FileUp, Plus, ChevronLeft, ChevronRight, Clock, Edit2, Users } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -127,9 +127,10 @@ interface LibraryProps {
   onBookClick: (book: Book) => void;
   onEdit: (book: Book) => void;
   onDelete: (book: Book) => void;
+  mode?: 'personal' | 'community';
 }
 
-export const Library: React.FC<LibraryProps> = ({ books, onBookClick, onEdit, onDelete }) => {
+export const Library: React.FC<LibraryProps> = ({ books, onBookClick, onEdit, onDelete, mode = 'personal' }) => {
   const [user] = useAuthState(auth);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [searchQuery, setSearchQuery] = useState('');
@@ -308,11 +309,22 @@ export const Library: React.FC<LibraryProps> = ({ books, onBookClick, onEdit, on
         return matchesSearch && matchesStatus && matchesGenre;
       })
       .sort((a, b) => {
-        if (sortBy === 'title') return a.title.localeCompare(b.title);
-        if (sortBy === 'author') return a.author.localeCompare(b.author);
+        if (sortBy === 'title') return (a.title || '').localeCompare(b.title || '');
+        if (sortBy === 'author') return (a.author || '').localeCompare(b.author || '');
         if (sortBy === 'rating') return (b.rating || 0) - (a.rating || 0);
-        const timeA = a.createdAt?.toMillis() || 0;
-        const timeB = b.createdAt?.toMillis() || 0;
+        
+        // Defensive check for toMillis
+        const getTime = (book: Book) => {
+          if (!book.createdAt) return 0;
+          if (typeof book.createdAt.toMillis === 'function') return book.createdAt.toMillis();
+          if (book.createdAt instanceof Date) return book.createdAt.getTime();
+          if (typeof book.createdAt === 'number') return book.createdAt;
+          if (typeof book.createdAt === 'string') return new Date(book.createdAt).getTime();
+          return 0;
+        };
+
+        const timeA = getTime(a);
+        const timeB = getTime(b);
         return timeB - timeA;
       });
   }, [myBooks, searchQuery, statusFilter, genreFilter, sortBy]);
@@ -364,8 +376,15 @@ export const Library: React.FC<LibraryProps> = ({ books, onBookClick, onEdit, on
       {/* Header & Search */}
       <header className="flex flex-col lg:flex-row lg:items-center justify-between gap-8">
         <div className="space-y-2">
-          <h1 className="text-6xl font-serif font-bold text-treehouse tracking-tighter">Your Library</h1>
-          <p className="text-treehouse font-medium text-lg">Organize and explore your collection of <span className="text-treehouse font-bold">{myBooks.length} books</span>.</p>
+          <h1 className="text-6xl font-serif font-bold text-treehouse tracking-tighter">
+            {mode === 'personal' ? 'Your Library' : 'Community'}
+          </h1>
+          <p className="text-treehouse font-medium text-lg">
+            {mode === 'personal' 
+              ? `Organize and explore your collection of ${myBooks.length} books.`
+              : `Discover ${suggestedBooks.length} books suggested by the community.`
+            }
+          </p>
         </div>
         
         <div className="flex flex-col sm:flex-row items-center gap-4">
@@ -538,146 +557,178 @@ export const Library: React.FC<LibraryProps> = ({ books, onBookClick, onEdit, on
       </AnimatePresence>
 
       {/* Suggested Section */}
-      <SuggestedSection books={suggestedBooks} myBooks={myBooks} onAdd={addToMyLibrary} />
-
-      <div className="flex items-center gap-3 px-2 mb-6">
-        <div className="w-8 h-8 bg-brand-950 dark:bg-brand-500 text-white rounded-xl flex items-center justify-center shadow-lg rotate-3">
-          <Layers size={16} />
-        </div>
-        <h2 className="text-sm font-black text-brand-950 dark:text-brand-50 uppercase tracking-[0.2em]">Books in your library</h2>
-      </div>
-
-      {/* Content Grid/List */}
-      {filteredBooks.length > 0 ? (
-        viewMode === 'grid' ? (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-            {filteredBooks.map((book) => (
-              <BookCard
-                key={book.id}
-                book={book}
-                currentUserId={user?.uid}
-                onClick={() => onBookClick(book)}
-                onEdit={(e) => { e.stopPropagation(); onEdit(book); }}
-                onDelete={(e) => { e.stopPropagation(); onDelete(book); }}
-              />
-            ))}
+      {mode === 'community' ? (
+        <div className="space-y-12">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
+            {suggestedBooks.map(book => {
+              const isAlreadyInLibrary = myBooks.some(b => 
+                b.title.toLowerCase() === book.title.toLowerCase() && 
+                b.author.toLowerCase() === book.author.toLowerCase()
+              );
+              return (
+                <SuggestedBookCard 
+                  key={book.id} 
+                  book={book} 
+                  onAdd={addToMyLibrary} 
+                  isAlreadyInLibrary={isAlreadyInLibrary}
+                />
+              );
+            })}
           </div>
-        ) : (
-          <div className="bg-white dark:bg-brand-900 rounded-[3rem] shadow-2xl shadow-brand-950/5 overflow-hidden border border-brand-100 dark:border-brand-800">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left">
-                <thead>
-                  <tr className="bg-brand-50/50 dark:bg-brand-950/50 border-b border-brand-100 dark:border-brand-800">
-                    <th className="px-10 py-8 text-[10px] font-black text-brand-500 dark:text-brand-400 uppercase tracking-[0.2em]">Book</th>
-                    <th className="px-10 py-8 text-[10px] font-black text-brand-500 dark:text-brand-400 uppercase tracking-[0.2em]">Author</th>
-                    <th className="px-10 py-8 text-[10px] font-black text-brand-500 dark:text-brand-400 uppercase tracking-[0.2em]">Genre</th>
-                    <th className="px-10 py-8 text-[10px] font-black text-brand-500 dark:text-brand-400 uppercase tracking-[0.2em]">Status</th>
-                    <th className="px-10 py-8 text-[10px] font-black text-brand-500 dark:text-brand-400 uppercase tracking-[0.2em]">Rating</th>
-                    <th className="px-10 py-8 text-[10px] font-black text-brand-500 dark:text-brand-400 uppercase tracking-[0.2em]">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-brand-50 dark:divide-brand-800">
-                  {filteredBooks.map((book) => (
-                    <tr 
-                      key={book.id} 
-                      onClick={() => onBookClick(book)}
-                      className="hover:bg-brand-50/30 dark:hover:bg-brand-950/30 transition-colors cursor-pointer group"
-                    >
-                      <td className="px-10 py-8">
-                        <div className="flex items-center gap-6">
-                          <div className="w-12 h-16 rounded-xl overflow-hidden shadow-lg shadow-brand-950/10 flex-shrink-0 group-hover:scale-110 transition-transform duration-500">
-                            <img 
-                              src={book.coverImageUrl || `https://picsum.photos/seed/${book.id}/100/150`} 
-                              alt={book.title} 
-                              className="w-full h-full object-cover"
-                              referrerPolicy="no-referrer"
-                            />
-                          </div>
-                          <div>
-                            <p className="font-serif font-bold text-brand-950 dark:text-brand-50 text-lg group-hover:text-brand-600 dark:group-hover:text-brand-400 transition-colors line-clamp-2 leading-tight">{book.title}</p>
-                            {book.seriesName && (
-                              <p className="text-[10px] font-black text-brand-300 dark:text-brand-500 uppercase tracking-widest mt-1">
-                                {book.seriesName} <span className="text-brand-500 dark:text-brand-400">#{book.seriesPosition}</span>
-                              </p>
-                            )}
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-10 py-8 text-brand-600 dark:text-brand-400 font-bold italic">by {book.author}</td>
-                      <td className="px-10 py-8">
-                        <span className="px-3 py-1 bg-brand-50 dark:bg-brand-950 text-brand-700 dark:text-brand-50 rounded-full text-[10px] font-black uppercase tracking-widest border border-brand-100 dark:border-brand-800">
-                          {book.genre[0]}
-                        </span>
-                      </td>
-                      <td className="px-10 py-8">
-                        <span className={cn(
-                          "px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border",
-                          book.status === 'Completed' ? "bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border-emerald-100 dark:border-emerald-800" :
-                          book.status === 'Currently Reading' ? "bg-brand-50 dark:bg-brand-950/30 text-brand-700 dark:text-brand-400 border-brand-100 dark:border-brand-950" :
-                          "bg-brand-50/50 dark:bg-brand-950/50 text-brand-500 dark:text-brand-500 border-brand-100 dark:border-brand-800"
-                        )}>
-                          {book.status}
-                        </span>
-                      </td>
-                      <td className="px-10 py-8">
-                        <div className="flex gap-1">
-                          {[1, 2, 3, 4, 5].map(star => (
-                            <Star 
-                              key={star} 
-                              size={14} 
-                              className={cn(book.rating && book.rating >= star ? "text-brand-500" : "text-brand-300 dark:text-brand-700")} 
-                              fill={book.rating && book.rating >= star ? "currentColor" : "none"}
-                            />
-                          ))}
-                        </div>
-                      </td>
-                      <td className="px-10 py-8">
-                        <div className="flex gap-3 opacity-0 group-hover:opacity-100 transition-all duration-500 translate-x-4 group-hover:translate-x-0">
-                          <button 
-                            onClick={(e) => { e.stopPropagation(); onEdit(book); }}
-                            className="p-3 bg-brand-50 dark:bg-brand-950 hover:bg-brand-100 dark:hover:bg-brand-800 rounded-2xl text-brand-600 dark:text-brand-400 hover:text-brand-950 dark:hover:text-brand-100 transition-all shadow-sm"
-                          >
-                            <Edit2 size={18} />
-                          </button>
-                          <button 
-                            onClick={(e) => { e.stopPropagation(); onDelete(book); }}
-                            className="p-3 bg-rose-50 dark:bg-rose-900/30 hover:bg-rose-100 dark:hover:bg-rose-900/50 rounded-2xl text-rose-500 hover:text-rose-600 transition-all shadow-sm"
-                          >
-                            <Trash2 size={18} />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+          {suggestedBooks.length === 0 && (
+            <div className="flex flex-col items-center justify-center py-20 text-center">
+              <div className="w-20 h-20 bg-brand-50 dark:bg-brand-900 text-brand-200 dark:text-brand-700 rounded-full flex items-center justify-center mb-6">
+                <Users size={40} />
+              </div>
+              <h3 className="text-xl font-serif font-bold text-brand-950 dark:text-brand-50">No community suggestions yet</h3>
+              <p className="text-brand-600 dark:text-brand-400 max-w-xs mt-2">Be the first to share a public book in your library!</p>
             </div>
-          </div>
-        )
-      ) : (
-        <div className="flex flex-col items-center justify-center py-32 px-4 text-center">
-          <motion.div 
-            initial={{ scale: 0.8, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            className="w-32 h-32 bg-brand-50 dark:bg-brand-900 text-brand-200 dark:text-brand-700 rounded-[2.5rem] flex items-center justify-center mb-10 shadow-inner"
-          >
-            <Search size={56} />
-          </motion.div>
-          <h3 className="text-4xl font-serif font-bold text-brand-950 dark:text-brand-50 mb-4 tracking-tighter">No books found</h3>
-          <p className="text-brand-700 dark:text-brand-400 max-w-md font-medium text-lg leading-relaxed">
-            We couldn't find any books matching your current search or filters. Try adjusting them or add a new book to your library.
-          </p>
-          <button 
-            onClick={() => {
-              setSearchQuery('');
-              setStatusFilter('All');
-              setGenreFilter([]);
-            }}
-            className="mt-12 px-10 py-5 bg-brand-950 dark:bg-brand-500 text-white rounded-[2rem] font-black text-xs uppercase tracking-[0.2em] hover:bg-brand-800 dark:hover:bg-brand-600 transition-all shadow-2xl shadow-brand-950/20"
-          >
-            Clear All Filters
-          </button>
+          )}
         </div>
+      ) : (
+        <>
+          <SuggestedSection books={suggestedBooks} myBooks={myBooks} onAdd={addToMyLibrary} />
+
+          <div className="flex items-center gap-3 px-2 mb-6">
+            <div className="w-8 h-8 bg-brand-950 dark:bg-brand-500 text-white rounded-xl flex items-center justify-center shadow-lg rotate-3">
+              <Layers size={16} />
+            </div>
+            <h2 className="text-sm font-black text-brand-950 dark:text-brand-50 uppercase tracking-[0.2em]">Books in your library</h2>
+          </div>
+
+          {/* Content Grid/List */}
+          {filteredBooks.length > 0 ? (
+            viewMode === 'grid' ? (
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+                {filteredBooks.map((book) => (
+                  <BookCard
+                    key={book.id}
+                    book={book}
+                    currentUserId={user?.uid}
+                    onClick={() => onBookClick(book)}
+                    onEdit={(e) => { e.stopPropagation(); onEdit(book); }}
+                    onDelete={(e) => { e.stopPropagation(); onDelete(book); }}
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className="bg-white dark:bg-brand-900 rounded-[3rem] shadow-2xl shadow-brand-950/5 overflow-hidden border border-brand-100 dark:border-brand-800">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left">
+                    <thead>
+                      <tr className="bg-brand-50/50 dark:bg-brand-950/50 border-b border-brand-100 dark:border-brand-800">
+                        <th className="px-10 py-8 text-[10px] font-black text-brand-500 dark:text-brand-400 uppercase tracking-[0.2em]">Book</th>
+                        <th className="px-10 py-8 text-[10px] font-black text-brand-500 dark:text-brand-400 uppercase tracking-[0.2em]">Author</th>
+                        <th className="px-10 py-8 text-[10px] font-black text-brand-500 dark:text-brand-400 uppercase tracking-[0.2em]">Genre</th>
+                        <th className="px-10 py-8 text-[10px] font-black text-brand-500 dark:text-brand-400 uppercase tracking-[0.2em]">Status</th>
+                        <th className="px-10 py-8 text-[10px] font-black text-brand-500 dark:text-brand-400 uppercase tracking-[0.2em]">Rating</th>
+                        <th className="px-10 py-8 text-[10px] font-black text-brand-500 dark:text-brand-400 uppercase tracking-[0.2em]">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-brand-50 dark:divide-brand-800">
+                      {filteredBooks.map((book) => (
+                        <tr 
+                          key={book.id} 
+                          onClick={() => onBookClick(book)}
+                          className="hover:bg-brand-50/30 dark:hover:bg-brand-950/30 transition-colors cursor-pointer group"
+                        >
+                          <td className="px-10 py-8">
+                            <div className="flex items-center gap-6">
+                              <div className="w-12 h-16 rounded-xl overflow-hidden shadow-lg shadow-brand-950/10 flex-shrink-0 group-hover:scale-110 transition-transform duration-500">
+                                <img 
+                                  src={book.coverImageUrl || `https://picsum.photos/seed/${book.id}/100/150`} 
+                                  alt={book.title} 
+                                  className="w-full h-full object-cover"
+                                  referrerPolicy="no-referrer"
+                                />
+                              </div>
+                              <div>
+                                <p className="font-serif font-bold text-brand-950 dark:text-brand-50 text-lg group-hover:text-brand-600 dark:group-hover:text-brand-400 transition-colors line-clamp-2 leading-tight">{book.title}</p>
+                                {book.seriesName && (
+                                  <p className="text-[10px] font-black text-brand-300 dark:text-brand-500 uppercase tracking-widest mt-1">
+                                    {book.seriesName} <span className="text-brand-500 dark:text-brand-400">#{book.seriesPosition}</span>
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-10 py-8 text-brand-600 dark:text-brand-400 font-bold italic">by {book.author}</td>
+                          <td className="px-10 py-8">
+                            <span className="px-3 py-1 bg-brand-50 dark:bg-brand-950 text-brand-700 dark:text-brand-50 rounded-full text-[10px] font-black uppercase tracking-widest border border-brand-100 dark:border-brand-800">
+                              {book.genre[0]}
+                            </span>
+                          </td>
+                          <td className="px-10 py-8">
+                            <span className={cn(
+                              "px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border",
+                              book.status === 'Completed' ? "bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border-emerald-100 dark:border-emerald-800" :
+                              book.status === 'Currently Reading' ? "bg-brand-50 dark:bg-brand-950/30 text-brand-700 dark:text-brand-400 border-brand-100 dark:border-brand-950" :
+                              "bg-brand-50/50 dark:bg-brand-950/50 text-brand-500 dark:text-brand-500 border-brand-100 dark:border-brand-800"
+                            )}>
+                              {book.status}
+                            </span>
+                          </td>
+                          <td className="px-10 py-8">
+                            <div className="flex gap-1">
+                              {[1, 2, 3, 4, 5].map(star => (
+                                <Star 
+                                  key={star} 
+                                  size={14} 
+                                  className={cn(book.rating && book.rating >= star ? "text-brand-500" : "text-brand-300 dark:text-brand-700")} 
+                                  fill={book.rating && book.rating >= star ? "currentColor" : "none"}
+                                />
+                              ))}
+                            </div>
+                          </td>
+                          <td className="px-10 py-8">
+                            <div className="flex gap-3 opacity-0 group-hover:opacity-100 transition-all duration-500 translate-x-4 group-hover:translate-x-0">
+                              <button 
+                                onClick={(e) => { e.stopPropagation(); onEdit(book); }}
+                                className="p-3 bg-brand-50 dark:bg-brand-950 hover:bg-brand-100 dark:hover:bg-brand-800 rounded-2xl text-brand-600 dark:text-brand-400 hover:text-brand-950 dark:hover:text-brand-100 transition-all shadow-sm"
+                              >
+                                <Edit2 size={18} />
+                              </button>
+                              <button 
+                                onClick={(e) => { e.stopPropagation(); onDelete(book); }}
+                                className="p-3 bg-rose-50 dark:bg-rose-900/30 hover:bg-rose-100 dark:hover:bg-rose-900/50 rounded-2xl text-rose-500 hover:text-rose-600 transition-all shadow-sm"
+                              >
+                                <Trash2 size={18} />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )
+          ) : (
+            <div className="flex flex-col items-center justify-center py-32 px-4 text-center">
+              <motion.div 
+                initial={{ scale: 0.8, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                className="w-32 h-32 bg-brand-50 dark:bg-brand-900 text-brand-200 dark:text-brand-700 rounded-[2.5rem] flex items-center justify-center mb-10 shadow-inner"
+              >
+                <Search size={56} />
+              </motion.div>
+              <h3 className="text-4xl font-serif font-bold text-brand-950 dark:text-brand-50 mb-4 tracking-tighter">No books found</h3>
+              <p className="text-brand-700 dark:text-brand-400 max-w-md font-medium text-lg leading-relaxed">
+                We couldn't find any books matching your current search or filters. Try adjusting them or add a new book to your library.
+              </p>
+              <button 
+                onClick={() => {
+                  setSearchQuery('');
+                  setStatusFilter('All');
+                  setGenreFilter([]);
+                }}
+                className="mt-12 px-10 py-5 bg-brand-950 dark:bg-brand-500 text-white rounded-[2rem] font-black text-xs uppercase tracking-[0.2em] hover:bg-brand-800 dark:hover:bg-brand-600 transition-all shadow-2xl shadow-brand-950/20"
+              >
+                Clear All Filters
+              </button>
+            </div>
+          )}
+        </>
       )}
     </div>
   );

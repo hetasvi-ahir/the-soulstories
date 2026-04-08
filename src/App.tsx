@@ -69,54 +69,26 @@ export default function App() {
       return;
     }
 
-    // Query for user's own books
-    const qOwn = query(
+    const q = query(
       collection(db, 'books'),
-      where('userId', '==', user.uid),
+      or(
+        where('userId', '==', user.uid),
+        where('isPublic', '==', true)
+      ),
       orderBy('createdAt', 'desc')
     );
 
-    // Query for public books
-    const qPublic = query(
-      collection(db, 'books'),
-      where('isPublic', '==', true),
-      orderBy('createdAt', 'desc')
-    );
-
-    const unsubscribeOwn = onSnapshot(qOwn, (snapshot) => {
-      const ownBooks = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Book));
-      setBooks(prev => {
-        const publicOnly = prev.filter(b => b.userId !== user.uid);
-        const merged = [...ownBooks, ...publicOnly];
-        // Sort by createdAt desc
-        return merged.sort((a, b) => b.createdAt.toMillis() - a.createdAt.toMillis());
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const bookData: Book[] = [];
+      snapshot.forEach((doc) => {
+        bookData.push({ id: doc.id, ...doc.data() } as Book);
       });
+      setBooks(bookData);
     }, (error) => {
-      handleFirestoreError(error, OperationType.LIST, 'books/own');
+      handleFirestoreError(error, OperationType.LIST, 'books');
     });
 
-    const unsubscribePublic = onSnapshot(qPublic, (snapshot) => {
-      const publicBooks = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Book));
-      setBooks(prev => {
-        const ownOnly = prev.filter(b => b.userId === user.uid);
-        // Merge and avoid duplicates (if own book is also public)
-        const merged = [...ownOnly];
-        publicBooks.forEach(pb => {
-          if (!merged.some(mb => mb.id === pb.id)) {
-            merged.push(pb);
-          }
-        });
-        // Sort by createdAt desc
-        return merged.sort((a, b) => b.createdAt.toMillis() - a.createdAt.toMillis());
-      });
-    }, (error) => {
-      handleFirestoreError(error, OperationType.LIST, 'books/public');
-    });
-
-    return () => {
-      unsubscribeOwn();
-      unsubscribePublic();
-    };
+    return () => unsubscribe();
   }, [user, isAuthReady]);
 
   const handleDeleteBook = async (book: Book) => {
@@ -173,22 +145,22 @@ export default function App() {
               {activeTab === 'dashboard' && (
                 <Dashboard books={books} onBookClick={(book) => setViewingBookId(book.id)} />
               )}
-              {activeTab === 'library' && (
+              {activeTab === 'my-library' && (
                 <Library 
-                  books={books.filter(b => b.userId === user.uid)} 
+                  mode="personal"
+                  books={books} 
                   onBookClick={(book) => setViewingBookId(book.id)} 
                   onEdit={(book) => setEditingBookId(book.id)}
                   onDelete={handleDeleteBook}
-                  title="My Library"
                 />
               )}
               {activeTab === 'community' && (
                 <Library 
-                  books={books.filter(b => b.isPublic)} 
+                  mode="community"
+                  books={books} 
                   onBookClick={(book) => setViewingBookId(book.id)} 
                   onEdit={(book) => setEditingBookId(book.id)}
                   onDelete={handleDeleteBook}
-                  title="Community Library"
                 />
               )}
               {activeTab === 'series' && (
