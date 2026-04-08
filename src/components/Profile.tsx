@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useAuthState } from 'react-firebase-hooks/auth';
-import { auth, db, doc, getDoc, setDoc, updateDoc, handleFirestoreError, OperationType, Timestamp, collection, addDoc, serverTimestamp } from '../firebase';
+import { auth, db, doc, getDoc, setDoc, updateDoc, handleFirestoreError, OperationType, Timestamp, collection, addDoc, serverTimestamp, query, where, getDocs } from '../firebase';
 import { UserProfile, GENRES } from '../types';
-import { User, Mail, Calendar, Award, Heart, Edit3, Save, Camera, Settings, ShieldCheck, Database, CheckCircle2, FilePlus } from 'lucide-react';
+import { User, Mail, Calendar, Award, Heart, Edit3, Save, Camera, Settings, ShieldCheck, Database, CheckCircle2, FilePlus, Users } from 'lucide-react';
 import { ConfirmationModal } from './ConfirmationModal';
 import { toast } from 'sonner';
 import { SAMPLE_BOOKS } from '../data/sampleBooks';
@@ -25,6 +25,8 @@ export const Profile: React.FC = () => {
   const [seeding, setSeeding] = useState(false);
   const [seedSuccess, setSeedSuccess] = useState(false);
   const [showSeedConfirm, setShowSeedConfirm] = useState(false);
+  const [showShareAllConfirm, setShowShareAllConfirm] = useState(false);
+  const [sharingAll, setSharingAll] = useState(false);
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -109,6 +111,7 @@ export const Profile: React.FC = () => {
           userId: user.uid,
           status: 'To Read',
           isFavorite: false,
+          isPublic: true,
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
         });
@@ -120,6 +123,37 @@ export const Profile: React.FC = () => {
       handleFirestoreError(error, OperationType.CREATE, 'books');
     } finally {
       setSeeding(false);
+    }
+  };
+
+  const handleShareAllBooks = async () => {
+    if (!user) return;
+    setShowShareAllConfirm(true);
+  };
+
+  const confirmShareAllBooks = async () => {
+    if (!user) return;
+    setShowShareAllConfirm(false);
+    setSharingAll(true);
+    try {
+      const q = query(collection(db, 'books'), where('userId', '==', user.uid));
+      const snapshot = await getDocs(q);
+      
+      let count = 0;
+      const promises = snapshot.docs.map(bookDoc => {
+        count++;
+        return updateDoc(doc(db, 'books', bookDoc.id), { 
+          isPublic: true,
+          updatedAt: serverTimestamp()
+        });
+      });
+
+      await Promise.all(promises);
+      toast.success(`Successfully shared ${count} books with the community!`);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, 'books');
+    } finally {
+      setSharingAll(false);
     }
   };
 
@@ -295,6 +329,73 @@ export const Profile: React.FC = () => {
         </motion.div>
       </div>
 
+      {/* Data Management Section */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.2 }}
+        className="p-10 bg-white dark:bg-brand-900 rounded-[2.5rem] shadow-xl border border-brand-100 dark:border-brand-800"
+      >
+        <h3 className="text-xl font-serif font-bold text-brand-950 dark:text-brand-50 mb-8 flex items-center gap-3">
+          <Database className="text-brand-400 dark:text-brand-500" />
+          Data & Community
+        </h3>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          <div className="p-6 bg-brand-50/50 dark:bg-brand-950/50 rounded-3xl border border-brand-100 dark:border-brand-800 space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-emerald-500/10 text-emerald-500 rounded-xl flex items-center justify-center">
+                <Users size={20} />
+              </div>
+              <h4 className="font-bold text-brand-950 dark:text-brand-50">Community Sharing</h4>
+            </div>
+            <p className="text-sm text-brand-600 dark:text-brand-400 leading-relaxed">
+              Want to share your entire existing collection with other users? This will mark all your current books as "Public".
+            </p>
+            <button
+              onClick={handleShareAllBooks}
+              disabled={sharingAll}
+              className="w-full py-4 bg-emerald-500 text-white rounded-2xl font-bold hover:bg-emerald-600 transition-all shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2 disabled:opacity-50"
+            >
+              {sharingAll ? (
+                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              ) : (
+                <>
+                  <CheckCircle2 size={18} />
+                  Share All Existing Books
+                </>
+              )}
+            </button>
+          </div>
+
+          <div className="p-6 bg-brand-50/50 dark:bg-brand-950/50 rounded-3xl border border-brand-100 dark:border-brand-800 space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-brand-500/10 text-brand-500 rounded-xl flex items-center justify-center">
+                <FilePlus size={20} />
+              </div>
+              <h4 className="font-bold text-brand-950 dark:text-brand-50">Sample Data</h4>
+            </div>
+            <p className="text-sm text-brand-600 dark:text-brand-400 leading-relaxed">
+              New to SoulStories? Import a curated collection of 63 books to see how the library and statistics work.
+            </p>
+            <button
+              onClick={handleSeedData}
+              disabled={seeding}
+              className="w-full py-4 bg-brand-950 dark:bg-brand-500 text-white rounded-2xl font-bold hover:bg-brand-800 dark:hover:bg-brand-600 transition-all shadow-lg shadow-brand-950/20 flex items-center justify-center gap-2 disabled:opacity-50"
+            >
+              {seeding ? (
+                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              ) : (
+                <>
+                  <FilePlus size={18} />
+                  Import Sample Collection
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      </motion.div>
+
       <ConfirmationModal
         isOpen={showSeedConfirm}
         title="Import Sample Collection?"
@@ -302,6 +403,16 @@ export const Profile: React.FC = () => {
         confirmLabel="Import Collection"
         onConfirm={confirmSeedData}
         onCancel={() => setShowSeedConfirm(false)}
+        variant="info"
+      />
+
+      <ConfirmationModal
+        isOpen={showShareAllConfirm}
+        title="Share All Books?"
+        message="This will mark all books in your library as 'Public', making them visible to other users in the 'Suggested' section. You can still change individual books later."
+        confirmLabel="Share Everything"
+        onConfirm={confirmShareAllBooks}
+        onCancel={() => setShowShareAllConfirm(false)}
         variant="info"
       />
     </div>

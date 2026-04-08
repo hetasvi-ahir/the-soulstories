@@ -175,9 +175,9 @@ export const BookForm: React.FC<BookFormProps> = ({ book, onClose, onSuccess, bo
         data.type = 'Standalone';
       }
 
-      // Add user name for social feature
+      // Handle visibility
       data.addedBy = user.displayName || 'Anonymous';
-      data.isPublic = true; // Make books public by default for the social feature
+      data.isPublic = formData.isPublic !== undefined ? formData.isPublic : true;
 
       if (book?.id) {
         console.log('Updating book:', book.id, data);
@@ -259,9 +259,9 @@ export const BookForm: React.FC<BookFormProps> = ({ book, onClose, onSuccess, bo
             </div>
           </div>
 
-          {/* Series Toggle */}
-          <div className="space-y-6 p-8 bg-brand-50/30 dark:bg-brand-950/30 rounded-[2.5rem] border border-brand-100/50 dark:border-brand-800/50">
-            <div className="flex items-center justify-between">
+          {/* Settings Toggles */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-8 bg-brand-50/30 dark:bg-brand-950/30 rounded-[2.5rem] border border-brand-100/50 dark:border-brand-800/50">
+            <div className="space-y-4">
               <label className="flex items-center gap-4 cursor-pointer group">
                 <div className="relative">
                   <input
@@ -281,7 +281,33 @@ export const BookForm: React.FC<BookFormProps> = ({ book, onClose, onSuccess, bo
                 </div>
                 <span className="text-sm font-bold text-brand-950 dark:text-brand-200 group-hover:text-brand-600 dark:group-hover:text-brand-400 transition-colors">Is this part of a series?</span>
               </label>
-              <p className="hidden sm:block text-[9px] text-brand-400 dark:text-brand-500 italic">Linking books to a series creates a collection in the Series view.</p>
+              <p className="text-[9px] text-brand-400 dark:text-brand-500 italic">Linking books to a series creates a collection in the Series view.</p>
+            </div>
+
+            <div className="space-y-4">
+              <label className="flex items-center gap-4 cursor-pointer group">
+                <div className="relative">
+                  <input
+                    type="checkbox"
+                    name="isPublic"
+                    checked={formData.isPublic !== false}
+                    onChange={handleChange}
+                    className="sr-only"
+                  />
+                  <div className={cn(
+                    "w-12 h-6 rounded-full transition-all duration-500",
+                    formData.isPublic !== false ? "bg-emerald-500" : "bg-brand-300 dark:bg-brand-800"
+                  )} />
+                  <div className={cn(
+                    "absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-all duration-500 shadow-lg",
+                    formData.isPublic !== false ? "translate-x-6" : "translate-x-0"
+                  )} />
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-sm font-bold text-brand-950 dark:text-brand-200 group-hover:text-brand-600 dark:group-hover:text-brand-400 transition-colors">Share with Community</span>
+                </div>
+              </label>
+              <p className="text-[9px] text-brand-400 dark:text-brand-500 italic">Public books appear in other users' "Suggested" section.</p>
             </div>
 
             <AnimatePresence>
@@ -290,7 +316,7 @@ export const BookForm: React.FC<BookFormProps> = ({ book, onClose, onSuccess, bo
                   initial={{ height: 0, opacity: 0 }}
                   animate={{ height: 'auto', opacity: 1 }}
                   exit={{ height: 0, opacity: 0 }}
-                  className="space-y-8 pt-4 overflow-hidden"
+                  className="md:col-span-2 space-y-8 pt-4 overflow-hidden"
                 >
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                     <div className="space-y-3">
